@@ -21,6 +21,15 @@ maintainer:         ameliang123@gmai~l.com
 -- category:
 extra-source-files: CHANGELOG.md
 
+library
+    exposed-modules:
+        Simulation.Shallow
+        Utils.Matrix
+    build-depends:    base ^>=4.17.2.0,
+                      vector
+    hs-source-dirs:
+        src
+
 executable flowpaint
     main-is:          Main.hs
 
