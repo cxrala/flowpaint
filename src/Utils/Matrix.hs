@@ -1,5 +1,6 @@
 module Utils.Matrix
   ( Matrix
+  , matrixDims
   , matrixInit
   , matrixGet
   , matrixMap
@@ -28,6 +29,9 @@ raiseDims :: Int -> Matrix a -> (Int, Int)
 raiseDims i m = quotRem i (mWidth m)
 
 -- exposed
+matrixDims :: Matrix a -> (Int, Int)
+matrixDims = dims
+
 matrixInit :: (Int, Int) -> a -> Matrix a
 matrixInit dims@(rows, cols) val =
   Matrix {vector = V.replicate rows val, dims = dims}

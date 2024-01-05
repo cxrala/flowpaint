@@ -1,8 +1,9 @@
 module Simulation.Shallow where
 
+import           Control.Exception (assert)
 import           Data.Ord
-import           Data.Vector         ((!))
-import qualified Data.Vector         as V
+import           Data.Vector       ((!))
+import qualified Data.Vector       as V
 import           Utils.Matrix
 
 -- for now, implemented almost identically to
@@ -70,3 +71,25 @@ advect n b d d0 u v dt =
                  + s1
                      * (t0 * matrixGet (i1, j0) d0 + t1 * matrixGet (i1, j1) d0))
         d0
+
+-- x0 is initially the source vector
+-- x is the original density vector
+densStep ::
+     Int
+  -> DensityField
+  -> DensityField
+  -> VelocityFieldX
+  -> VelocityFieldY
+  -> Double
+  -> Double
+  -> DensityField
+densStep n x x0 u v diff dt =
+  let padN = n + 2
+   in assert
+        ((padN, padN) == matrixDims x
+           && (padN, padN) == matrixDims x0
+           && (padN, padN) == matrixDims u
+           && (padN, padN) == matrixDims u)
+        (let densAfterSource = addSource x x0 dt
+             diffused = diffuse n 0 x0 densAfterSource diff dt
+          in advect n 0 densAfterSource diffused u v dt)
