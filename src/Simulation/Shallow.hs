@@ -45,12 +45,11 @@ advect ::
      Int
   -> Int
   -> DensityField
-  -> DensityField
   -> VelocityFieldX
   -> VelocityFieldY
   -> Double
   -> DensityField
-advect n b d d0 u v dt =
+advect n b d0 u v dt =
   let dt0 = dt * fromIntegral n
    in matrixImapCheckbounds
         (1, 1, n, n)
@@ -67,7 +66,7 @@ advect n b d d0 u v dt =
                s0 = 1 - s1
                t1 = y - fromIntegral j0
                t0 = 1 - t1
-            in s0 * (t0 * matrixGet (i0, j1) d0 + t1 * matrixGet (i0, j1) d0)
+            in s0 * (t0 * matrixGet (i0, j0) d0 + t1 * matrixGet (i0, j1) d0)
                  + s1
                      * (t0 * matrixGet (i1, j0) d0 + t1 * matrixGet (i1, j1) d0))
         d0
@@ -92,4 +91,4 @@ densStep n x x0 u v diff dt =
            && (padN, padN) == matrixDims u)
         (let densAfterSource = addSource x x0 dt
              diffused = diffuse n 0 x0 densAfterSource diff dt
-          in advect n 0 densAfterSource diffused u v dt)
+          in advect n 0 diffused u v dt)
