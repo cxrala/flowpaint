@@ -23,7 +23,7 @@ extra-source-files: CHANGELOG.md
 
 library
     exposed-modules:
-        Simulation.Shallow
+        Simulation.VelocityField
         Utils.Matrix
     build-depends:    base ^>=4.17.2.0,
                       vector

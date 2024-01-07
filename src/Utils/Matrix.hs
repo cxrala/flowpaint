@@ -93,7 +93,7 @@ inPlace op vec =
     op mv
     V.freeze mv
 
--- this needs to be moved out of here...
+-- TODO: this needs to be moved out of here...
 matrixSetBnd :: Int -> Int -> Matrix Double -> Matrix Double
 matrixSetBnd n b m =
   let sbHelper mvec =

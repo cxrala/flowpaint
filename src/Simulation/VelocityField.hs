@@ -1,4 +1,8 @@
-module Simulation.Shallow where
+module Simulation.VelocityField (
+  densStep,
+  velStep
+)
+where
 
 import           Control.Exception (assert)
 import           Data.Ord
@@ -93,7 +97,7 @@ project n u v =
               u
       p = matrixInit (matrixDims u) 0
       psolv =
-        let solvStep -- todo: lift linsolver out of functions diffuse and here
+        let solvStep -- TODO: lift linsolver out of functions diffuse and here
              =
               matrixSetBnd n 0
                 . matrixImapCheckbounds
@@ -159,11 +163,17 @@ velStep ::
   -> Double
   -> (VelocityFieldX, VelocityFieldY)
 velStep n u v u0 v0 visc dt =
-  let usrc = addSource u u0 dt
-      vsrc = addSource v v0 dt
-      diffusedu = diffuse n 1 u0 usrc visc dt
-      diffusedv = diffuse n 2 v0 vsrc visc dt
-      (uproj, vproj) = project n diffusedu diffusedv
-      advu = advect n 1 usrc diffusedu diffusedv dt
-      advv = advect n 1 vsrc diffusedu diffusedv dt
-   in project n advu advv
+  let padN = n + 2
+    in assert
+          ((padN, padN) == matrixDims u
+              && (padN, padN) == matrixDims v
+              && (padN, padN) == matrixDims u0
+              && (padN, padN) == matrixDims v0)
+          (let usrc = addSource u u0 dt
+               vsrc = addSource v v0 dt
+               diffusedu = diffuse n 1 u0 usrc visc dt
+               diffusedv = diffuse n 2 v0 vsrc visc dt
+               (uproj, vproj) = project n diffusedu diffusedv
+               advu = advect n 1 usrc diffusedu diffusedv dt
+               advv = advect n 1 vsrc diffusedu diffusedv dt
+            in project n advu advv)
