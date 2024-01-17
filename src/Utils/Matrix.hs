@@ -11,6 +11,7 @@ module Utils.Matrix
   , matrixNeighbours
   , matrixUnsafeUpd
   , matrixSetBnd
+  , matrixGenerate
   ) where
 
 import           Control.Monad
@@ -32,8 +33,11 @@ mWidth = snd . dims
 flattenDims :: (Int, Int) -> Matrix a -> Int
 flattenDims (x, y) m = x + mWidth m * y
 
+raiseDimsWidth :: Int -> Int -> (Int, Int)
+raiseDimsWidth = quotRem
+
 raiseDims :: Int -> Matrix a -> (Int, Int)
-raiseDims i m = quotRem i (mWidth m)
+raiseDims i m = raiseDimsWidth i (mWidth m)
 
 -- exposed
 matrixDims :: Matrix a -> (Int, Int)
@@ -41,7 +45,11 @@ matrixDims = dims
 
 matrixInit :: (Int, Int) -> a -> Matrix a
 matrixInit dims@(rows, cols) val =
-  Matrix {vector = V.replicate rows val, dims = dims}
+  Matrix {vector = V.replicate (rows * cols) val, dims = dims}
+
+matrixGenerate :: (Int, Int) -> ((Int, Int) -> a) -> Matrix a
+matrixGenerate dims@(x, y) f =
+  Matrix {vector = V.generate (x * y) $ f . (`raiseDimsWidth` y), dims = dims}
 
 matrixGet :: (Int, Int) -> Matrix a -> a
 matrixGet ij m = vector m ! flattenDims ij m
@@ -109,7 +117,7 @@ matrixSetBnd n b m =
                 mvec
                 (flattenDims prevDims m)
                 (if b == bCheck
-                   then -1 * matrixGet neighbourDims m
+                   then-1 * matrixGet neighbourDims m
                    else matrixGet neighbourDims m)
          in do
               forM_

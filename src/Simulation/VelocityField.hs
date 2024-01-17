@@ -147,9 +147,10 @@ densStep n x x0 u v diff dt =
            && (padN, padN) == matrixDims x0
            && (padN, padN) == matrixDims u
            && (padN, padN) == matrixDims u)
-        (let densAfterSource = addSource x x0 dt
-             diffused = diffuse n 0 x0 densAfterSource diff dt
-          in advect n 0 diffused u v dt)
+        x0
+        -- (let densAfterSource = addSource x x0 dt
+        --      diffused = diffuse n 0 x0 densAfterSource diff dt
+        --   in advect n 0 diffused u v dt)
 
 -- x0 is initially the source vector
 -- x is the original density vector
