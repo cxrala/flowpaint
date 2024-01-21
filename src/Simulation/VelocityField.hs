@@ -37,14 +37,13 @@ diffuse ::
   -> DensityField
 diffuse n b x x0 diff dt =
   let a = dt * diff * fromIntegral n * fromIntegral n
-      diffused =
-        matrixSetBnd n b
+      diffused = matrixSetBnd n b
           . matrixImapCheckbounds
               (1, 1, n, n)
               (\idxs dprev ->
                  (matrixGet idxs x0 + a * sum (matrixNeighbours idxs x))
                    / (1 + 4 * a))
-   in (iterate diffused x !! 30)
+   in (iterate diffused x0 !! 5)
 
 advect ::
      Int
@@ -104,7 +103,7 @@ project n u v =
                     (1, 1, n, n)
                     (\idxs dprev ->
                        (matrixGet idxs div + sum (matrixNeighbours idxs p)) / 4)
-         in iterate solvStep p !! 30
+         in iterate solvStep p !! 2
       newU =
         matrixSetBnd n 1
           $ matrixImapCheckbounds
@@ -146,11 +145,10 @@ densStep n x x0 u v diff dt =
         ((padN, padN) == matrixDims x
            && (padN, padN) == matrixDims x0
            && (padN, padN) == matrixDims u
-           && (padN, padN) == matrixDims u)
-        x0
-        -- (let densAfterSource = addSource x x0 dt
-        --      diffused = diffuse n 0 x0 densAfterSource diff dt
-        --   in advect n 0 diffused u v dt)
+           && (padN, padN) == matrixDims v)
+        (let densAfterSource = addSource x x0 dt
+             diffused = diffuse n 0 densAfterSource densAfterSource diff dt
+          in advect n 0 diffused u v dt)
 
 -- x0 is initially the source vector
 -- x is the original density vector

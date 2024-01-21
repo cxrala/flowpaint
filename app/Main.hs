@@ -15,13 +15,15 @@ import           Simulation.VelocityField (densStep, velStep)
 import           System.Exit              (ExitCode (ExitSuccess), exitSuccess,
                                            exitWith)
 import qualified Utils.Matrix             as M
+import Data.Int (Int32)
 
-screenWidth :: Int
-screensize@(screenWidth, screenHeight) = (n, n)
+screenWidth :: Int32
+screenHeight :: Int32
+screensize@(screenWidth, screenHeight) = (fromIntegral n, fromIntegral n)
 
 -- grid size
 n :: Int
-n = 80
+n = 40
 
 -- time step
 dt :: Double
@@ -33,7 +35,7 @@ diff = 0.0001
 
 -- |Viscosity of the fluid
 visc :: Double
-visc = 0.002
+visc = 5
 
 -- |Scales the mouse movement that generates a force
 force :: Double
@@ -69,21 +71,23 @@ colorVertex c v = do
   color c
   vertex v
 
+getQuadDens :: (Int, Int) -> M.Matrix Double -> [GLfloat]
+getQuadDens p@(x, y) m = map (realToFrac . (`M.matrixGet` m)) [p, (x + 1, y), (x + 1, y + 1), (x, y + 1)]
+
 drawDensity :: M.Matrix Double -> IO ()
 drawDensity m = do
   color (Color3 (1 :: GLfloat) 0 1)
-  let h = 1.0 / fromIntegral n
-  let f i = (fromIntegral i :: GLfloat) * h
+  let h = 2.0 / fromIntegral n
+  let f i = (fromIntegral i :: GLfloat) * h - 1.0 - h
   renderPrimitive G.Quads
     $ forM_
         [(x, y) | x <- [1 .. n], y <- [1 .. n]]
         (\(i, j) -> do
-           let [d00, d01, d10, d11] =
-                 map realToFrac (M.matrixNeighbours (i, j) m)
+           let [d00, d01, d10, d11] = getQuadDens (i, j) m
            colorVertex (Color3 d00 d00 d00) $ Vertex2 (f i) (f j)
-           colorVertex (Color3 d10 d10 d10) $ Vertex2 (f i + h) (f j)
-           colorVertex (Color3 d11 d11 d11) $ Vertex2 (f i + h) (f j + h)
-           colorVertex (Color3 d01 d01 d01) $ Vertex2 (f i) (f j + h))
+           colorVertex (Color3 d00 d00 d00) $ Vertex2 (f i + h) (f j)
+           colorVertex (Color3 d00 d00 d00) $ Vertex2 (f i + h) (f j + h)
+           colorVertex (Color3 d00 d00 d00) $ Vertex2 (f i) (f j + h))
   flush
 
 displayFunc :: IORef State -> DisplayCallback
@@ -93,19 +97,29 @@ displayFunc s = do
   drawDensity $ densityField state
   swapBuffers
 
+pos :: Int -> (Int, Int) -> (Int, Int) -> (Int, Int)
+pos n (width,height) (x,y) = (truncate (dx/dw*dn), n - truncate (dy/dh*dn)) where
+    dx = fromIntegral x :: Double
+    dy = fromIntegral y :: Double
+    dn = fromIntegral n :: Double 
+    dw = fromIntegral width :: Double
+    dh = fromIntegral height :: Double
+
 ------- IDLE MOVEMENT!
 updateStateFromUI :: IORef Input -> IO (M.Matrix Double)
 updateStateFromUI iref = do
   input <- readIORef iref
+  (_, Size width height) <- G.get viewport
   let mousepos = mousePos input
+  let scaledMousePos = pos n (fromIntegral width, fromIntegral height) mousepos 
   print mousepos
   return
     $ M.matrixGenerate
         (n + 2, n + 2)
         (\x ->
-           if x == mousepos
-             then 0.5
-             else 1)
+           if x == scaledMousePos
+             then 1
+             else 0)
 
 zeroGrid :: M.Matrix Double
 zeroGrid = M.matrixInit (n + 2, n + 2) 0
@@ -147,14 +161,14 @@ keyMouseFunc i _ _ km _ (Position x y) =
   writeIORef i $ setMouseData km (fromIntegral x :: Int, fromIntegral y :: Int)
 
 mouseMotionFunc :: IORef Input -> MotionCallback
-mouseMotionFunc i (Position x y) = modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y) 
+mouseMotionFunc i (Position x y) = modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y)
 
 -- This just starts up the event loop
 main :: IO ()
 main = do
   _ <- getArgsAndInitialize
   initialDisplayMode $= [DoubleBuffered, RGBAMode]
-  initialWindowSize $= Size 512 512
+  initialWindowSize $= Size (screenWidth * 4) (screenHeight * 4)
   initialWindowPosition $= Position 0 0
   _ <- G.createWindow "Barely Functional Fluid Dynamics"
   clearColor $= Color4 0 0 0 1

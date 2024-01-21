@@ -34,7 +34,7 @@ flattenDims :: (Int, Int) -> Matrix a -> Int
 flattenDims (x, y) m = x + mWidth m * y
 
 raiseDimsWidth :: Int -> Int -> (Int, Int)
-raiseDimsWidth = quotRem
+raiseDimsWidth i width = swap (quotRem i width)
 
 raiseDims :: Int -> Matrix a -> (Int, Int)
 raiseDims i m = raiseDimsWidth i (mWidth m)
@@ -70,13 +70,13 @@ matrixImapCheckbounds bounds f m =
           (\i a ->
              let point = raiseDims i m
               in if withinBounds point bounds
-                   then a
-                   else f point a)
+                   then f point a
+                   else a)
           (vector m)
     }
   where
     withinBounds (x, y) (lbx, lby, ubx, uby) =
-      x >= lbx && y >= lby && x <= ubx && x <= uby
+      x >= lbx && y >= lby && x <= ubx && y <= uby
 
 matrixNeighbours :: (Int, Int) -> Matrix a -> [a]
 matrixNeighbours (i, j) m =
