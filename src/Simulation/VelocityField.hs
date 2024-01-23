@@ -38,12 +38,12 @@ diffuse ::
 diffuse n b x x0 diff dt =
   let a = dt * diff * fromIntegral n * fromIntegral n
       diffused = matrixSetBnd n b
-          . matrixImapCheckbounds
+          . (\y -> matrixImapCheckbounds
               (1, 1, n, n)
               (\idxs dprev ->
-                 (matrixGet idxs x0 + a * sum (matrixNeighbours idxs x))
-                   / (1 + 4 * a))
-   in (iterate diffused x0 !! 5)
+                 (matrixGet idxs x0 + a * sum (matrixNeighbours idxs y))
+                   / (1 + 4 * a)) y)
+   in iterate diffused x !! 5
 
 advect ::
      Int
@@ -99,11 +99,11 @@ project n u v =
         let solvStep -- TODO: lift linsolver out of functions diffuse and here
              =
               matrixSetBnd n 0
-                . matrixImapCheckbounds
+                . (\y -> matrixImapCheckbounds
                     (1, 1, n, n)
                     (\idxs dprev ->
-                       (matrixGet idxs div + sum (matrixNeighbours idxs p)) / 4)
-         in iterate solvStep p !! 2
+                       (matrixGet idxs div + sum (matrixNeighbours idxs y)) / 4) y)
+         in iterate solvStep p !! 5
       newU =
         matrixSetBnd n 1
           $ matrixImapCheckbounds

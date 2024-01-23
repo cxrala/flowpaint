@@ -5,25 +5,30 @@ module Main where
 import           Control.Monad
 import           Data.Word                (Word32)
 import           Graphics.UI.GLUT         as G
-import           Linear                   (V4 (..))
+import           Linear                   (V4 (..), Additive (zero))
 
 import           Data.IORef
 
 import           SDL                      (KeyModifier)
+
+import           Data.Int                 (Int32)
+import           Data.List                (sort, unfoldr)
 -- import           SDL
 import           Simulation.VelocityField (densStep, velStep)
 import           System.Exit              (ExitCode (ExitSuccess), exitSuccess,
                                            exitWith)
 import qualified Utils.Matrix             as M
-import Data.Int (Int32)
+import           Utils.Matrix             (matrixNeighbours)
+import           Data.Tuple
+
 
 screenWidth :: Int32
 screenHeight :: Int32
-screensize@(screenWidth, screenHeight) = (fromIntegral n, fromIntegral n)
+screensize@(screenWidth, screenHeight) = (100, 100)
 
 -- grid size
 n :: Int
-n = 40
+n = 20
 
 -- time step
 dt :: Double
@@ -35,7 +40,7 @@ diff = 0.0001
 
 -- |Viscosity of the fluid
 visc :: Double
-visc = 5
+visc = 0.0003
 
 -- |Scales the mouse movement that generates a force
 force :: Double
@@ -43,7 +48,7 @@ force = 5.0
 
 -- |Amount of density that will be deposited
 source :: Double
-source = 100.0
+source = 1000.0
 
 data State = State
   { densityField  :: M.Matrix Double
@@ -54,7 +59,7 @@ data Input = Input
   { mouseDown    :: Bool
   , mousePosLast :: (Int, Int)
   , mousePos     :: (Int, Int)
-  }
+  } deriving (Show)
 
 initialState =
   State
@@ -72,7 +77,10 @@ colorVertex c v = do
   vertex v
 
 getQuadDens :: (Int, Int) -> M.Matrix Double -> [GLfloat]
-getQuadDens p@(x, y) m = map (realToFrac . (`M.matrixGet` m)) [p, (x + 1, y), (x + 1, y + 1), (x, y + 1)]
+getQuadDens p@(x, y) m =
+  map
+    (realToFrac . (`M.matrixGet` m))
+    [p, (x + 1, y), (x + 1, y + 1), (x, y + 1)]
 
 drawDensity :: M.Matrix Double -> IO ()
 drawDensity m = do
@@ -98,26 +106,58 @@ displayFunc s = do
   swapBuffers
 
 pos :: Int -> (Int, Int) -> (Int, Int) -> (Int, Int)
-pos n (width,height) (x,y) = (truncate (dx/dw*dn), n - truncate (dy/dh*dn)) where
+pos n (width, height) (x, y) =
+  (truncate (dx / dw * dn), n - truncate (dy / dh * dn))
+  where
     dx = fromIntegral x :: Double
     dy = fromIntegral y :: Double
-    dn = fromIntegral n :: Double 
+    dn = fromIntegral n :: Double
     dw = fromIntegral width :: Double
     dh = fromIntegral height :: Double
+
+neighbours :: (Num a, Num b) => (a, b) -> [(a, b)]
+neighbours (x, y) = [(x + 1, y), (x - 1, y), (x, y - 1), (x, y + 1)]
+
+line :: (Int, Int) -> (Int, Int) -> [(Int, Int)]
+line pa@(xa, ya) pb@(xb, yb) = map maySwitch . unfoldr go $ (x1, y1, 0)
+  where
+    steep = abs (yb - ya) > abs (xb - xa)
+    maySwitch =
+      if steep
+        then (\(x, y) -> (y, x))
+        else id
+    [(x1, y1), (x2, y2)] = sort [maySwitch pa, maySwitch pb]
+    deltax = x2 - x1
+    deltay = abs (y2 - y1)
+    ystep =
+      if y1 < y2
+        then 1
+        else -1
+    go (xTemp, yTemp, error)
+      | xTemp > x2 = Nothing
+      | otherwise = Just ((xTemp, yTemp), (xTemp + 1, newY, newError))
+      where
+        tempError = error + deltay
+        (newY, newError) =
+          if (2 * tempError) >= deltax
+            then (yTemp + ystep, tempError - deltax)
+            else (yTemp, tempError)
 
 ------- IDLE MOVEMENT!
 updateStateFromUI :: IORef Input -> IO (M.Matrix Double)
 updateStateFromUI iref = do
   input <- readIORef iref
   (_, Size width height) <- G.get viewport
+  let mouseposprev = mousePosLast input
   let mousepos = mousePos input
-  let scaledMousePos = pos n (fromIntegral width, fromIntegral height) mousepos 
-  print mousepos
-  return
-    $ M.matrixGenerate
+  let scaledMousePosPrev =
+        pos n (fromIntegral width, fromIntegral height) mouseposprev
+  let scaledMousePos = pos n (fromIntegral width, fromIntegral height) mousepos
+  print (scaledMousePos, scaledMousePosPrev)
+  return $ M.matrixGenerate
         (n + 2, n + 2)
         (\x ->
-           if x == scaledMousePos
+           if x `elem` line scaledMousePosPrev scaledMousePos
              then 1
              else 0)
 
@@ -152,7 +192,8 @@ setMouseData km coords@(x, y) =
     Up   -> Input False coords coords
 
 setMouseMovedData :: (Int, Int) -> Input -> Input
-setMouseMovedData currPos ilast = ilast {mousePosLast = mousePos ilast, mousePos = currPos}
+setMouseMovedData currPos ilast =
+  ilast {mousePosLast = mousePos ilast, mousePos = currPos}
 
 keyMouseFunc :: IORef Input -> IORef State -> KeyboardMouseCallback
 keyMouseFunc _ _ (Char 'q') _ _ _ = exitSuccess
@@ -161,16 +202,17 @@ keyMouseFunc i _ _ km _ (Position x y) =
   writeIORef i $ setMouseData km (fromIntegral x :: Int, fromIntegral y :: Int)
 
 mouseMotionFunc :: IORef Input -> MotionCallback
-mouseMotionFunc i (Position x y) = modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y)
+mouseMotionFunc i (Position x y) =
+  modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y)
 
 -- This just starts up the event loop
 main :: IO ()
 main = do
   _ <- getArgsAndInitialize
   initialDisplayMode $= [DoubleBuffered, RGBAMode]
-  initialWindowSize $= Size (screenWidth * 4) (screenHeight * 4)
+  initialWindowSize $= Size screenWidth screenHeight
   initialWindowPosition $= Position 0 0
-  _ <- G.createWindow "Barely Functional Fluid Dynamics"
+  _ <- G.createWindow "flowpaint"
   clearColor $= Color4 0 0 0 1
   state <- newIORef initialState
   input <- newIORef initialInput

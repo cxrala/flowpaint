@@ -17,14 +17,14 @@ module Utils.Matrix
 import           Control.Monad
 import           Control.Monad.ST
 import           Data.Tuple
-import           Data.Vector         ((!))
-import qualified Data.Vector         as V
-import qualified Data.Vector.Mutable as MV
+import           Data.Vector.Unboxed ((!))
+import qualified Data.Vector.Unboxed as V
+import qualified Data.Vector.Unboxed.Mutable as MV
 
 data Matrix a = Matrix
-  { vector :: V.Vector a
-  , dims   :: (Int, Int) -- height, width
-  }
+  { vector :: !(V.Vector a)
+  , dims   :: !(Int, Int) -- height, width
+  } deriving Show
 
 -- private
 mWidth :: Matrix a -> Int
@@ -34,7 +34,7 @@ flattenDims :: (Int, Int) -> Matrix a -> Int
 flattenDims (x, y) m = x + mWidth m * y
 
 raiseDimsWidth :: Int -> Int -> (Int, Int)
-raiseDimsWidth i width = swap (quotRem i width)
+raiseDimsWidth i j = swap $ quotRem i j
 
 raiseDims :: Int -> Matrix a -> (Int, Int)
 raiseDims i m = raiseDimsWidth i (mWidth m)
@@ -43,26 +43,26 @@ raiseDims i m = raiseDimsWidth i (mWidth m)
 matrixDims :: Matrix a -> (Int, Int)
 matrixDims = dims
 
-matrixInit :: (Int, Int) -> a -> Matrix a
+matrixInit :: V.Unbox a => (Int, Int) -> a -> Matrix a
 matrixInit dims@(rows, cols) val =
   Matrix {vector = V.replicate (rows * cols) val, dims = dims}
 
-matrixGenerate :: (Int, Int) -> ((Int, Int) -> a) -> Matrix a
+matrixGenerate :: V.Unbox a => (Int, Int) -> ((Int, Int) -> a) -> Matrix a
 matrixGenerate dims@(x, y) f =
   Matrix {vector = V.generate (x * y) $ f . (`raiseDimsWidth` y), dims = dims}
 
-matrixGet :: (Int, Int) -> Matrix a -> a
+matrixGet :: V.Unbox a => (Int, Int) -> Matrix a -> a
 matrixGet ij m = vector m ! flattenDims ij m
 
-matrixMap :: (a -> b) -> Matrix a -> Matrix b
+matrixMap :: (V.Unbox a, V.Unbox b) => (a -> b) -> Matrix a -> Matrix b
 matrixMap f m = m {vector = V.map f (vector m)}
 
-matrixImap :: ((Int, Int) -> a -> b) -> Matrix a -> Matrix b
+matrixImap :: (V.Unbox a, V.Unbox b) => ((Int, Int) -> a -> b) -> Matrix a -> Matrix b
 matrixImap f m = m {vector = V.imap (\i -> f (raiseDims i m)) (vector m)}
 
 -- INCLUSIVE within bounds check.
 matrixImapCheckbounds ::
-     (Int, Int, Int, Int) -> ((Int, Int) -> a -> a) -> Matrix a -> Matrix a
+    V.Unbox a => (Int, Int, Int, Int) -> ((Int, Int) -> a -> a) -> Matrix a -> Matrix a
 matrixImapCheckbounds bounds f m =
   m
     { vector =
@@ -78,11 +78,12 @@ matrixImapCheckbounds bounds f m =
     withinBounds (x, y) (lbx, lby, ubx, uby) =
       x >= lbx && y >= lby && x <= ubx && y <= uby
 
-matrixNeighbours :: (Int, Int) -> Matrix a -> [a]
+-- left, right, up, down
+matrixNeighbours :: V.Unbox a => (Int, Int) -> Matrix a -> [a]
 matrixNeighbours (i, j) m =
   map (`matrixGet` m) [(i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)]
 
-matrixUnsafeUpd :: Matrix a -> [((Int, Int), a)] -> Matrix a
+matrixUnsafeUpd :: V.Unbox a => Matrix a -> [((Int, Int), a)] -> Matrix a
 matrixUnsafeUpd m ls =
   m
     { vector =
@@ -91,7 +92,7 @@ matrixUnsafeUpd m ls =
 
 -- runs op on a vector, giving you a new vector. this is safe
 inPlace ::
-     forall a.
+     forall a. V.Unbox a =>
      (forall s. MV.MVector (MV.PrimState (ST s)) a -> ST s ())
   -> V.Vector a
   -> V.Vector a
