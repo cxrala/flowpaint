@@ -15,6 +15,8 @@ import           Data.Int                 (Int32)
 import           Data.List                (sort, unfoldr)
 -- import           SDL
 import           Simulation.VelocityField (densStep, velStep)
+import           Simulation.WaterQuantities (addVfieldHeightDifferences)
+
 import           System.Exit              (ExitCode (ExitSuccess), exitSuccess,
                                            exitWith)
 import qualified Utils.Matrix             as M
@@ -24,11 +26,11 @@ import           Data.Tuple
 
 screenWidth :: Int32
 screenHeight :: Int32
-screensize@(screenWidth, screenHeight) = (100, 100)
+screensize@(screenWidth, screenHeight) = (900, 900)
 
 -- grid size
 n :: Int
-n = 20
+n = 40
 
 -- time step
 dt :: Double
@@ -153,7 +155,7 @@ updateStateFromUI iref = do
   let scaledMousePosPrev =
         pos n (fromIntegral width, fromIntegral height) mouseposprev
   let scaledMousePos = pos n (fromIntegral width, fromIntegral height) mousepos
-  print (scaledMousePos, scaledMousePosPrev)
+  -- print (scaledMousePos, scaledMousePosPrev)
   return $ M.matrixGenerate
         (n + 2, n + 2)
         (\x ->
@@ -175,10 +177,11 @@ idleFunc sref iref = do
     if mouseDown input
       then updateStateFromUI iref
       else return zeroGrid
+  let vfield = velStep n u v zeroGrid zeroGrid visc dt
   writeIORef
     sref
     state
-      { velocityField = velStep n u v zeroGrid zeroGrid visc dt
+      { velocityField = addVfieldHeightDifferences vfield src dt n
       , densityField = densStep n dens src u v diff dt
       }
   postRedisplay Nothing
