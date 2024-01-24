@@ -3,26 +3,26 @@
 module Main where
 
 import           Control.Monad
-import           Data.Word                (Word32)
-import           Graphics.UI.GLUT         as G
-import           Linear                   (V4 (..), Additive (zero))
+import           Data.Word                  (Word32)
+import           Graphics.UI.GLUT           as G
+import           Linear                     (Additive (zero), V4 (..))
 
 import           Data.IORef
 
-import           SDL                      (KeyModifier)
+import           SDL                        (KeyModifier)
 
-import           Data.Int                 (Int32)
-import           Data.List                (sort, unfoldr)
+import           Data.Int                   (Int32)
+import           Data.List                  (sort, unfoldr)
+
 -- import           SDL
-import           Simulation.VelocityField (densStep, velStep)
-import           Simulation.WaterQuantities (addVfieldHeightDifferences)
+import           Simulation.VelocityField   (densStep, velStep)
+import           Simulation.WaterQuantities (updateWater)
 
-import           System.Exit              (ExitCode (ExitSuccess), exitSuccess,
-                                           exitWith)
-import qualified Utils.Matrix             as M
-import           Utils.Matrix             (matrixNeighbours)
 import           Data.Tuple
-
+import           System.Exit                (ExitCode (ExitSuccess),
+                                             exitSuccess, exitWith)
+import qualified Utils.Matrix               as M
+import           Utils.Matrix               (matrixNeighbours)
 
 screenWidth :: Int32
 screenHeight :: Int32
@@ -30,7 +30,7 @@ screensize@(screenWidth, screenHeight) = (900, 900)
 
 -- grid size
 n :: Int
-n = 40
+n = 30
 
 -- time step
 dt :: Double
@@ -156,7 +156,8 @@ updateStateFromUI iref = do
         pos n (fromIntegral width, fromIntegral height) mouseposprev
   let scaledMousePos = pos n (fromIntegral width, fromIntegral height) mousepos
   -- print (scaledMousePos, scaledMousePosPrev)
-  return $ M.matrixGenerate
+  return
+    $ M.matrixGenerate
         (n + 2, n + 2)
         (\x ->
            if x `elem` line scaledMousePosPrev scaledMousePos
@@ -177,12 +178,13 @@ idleFunc sref iref = do
     if mouseDown input
       then updateStateFromUI iref
       else return zeroGrid
-  let vfield = velStep n u v zeroGrid zeroGrid visc dt
+  let vfieldnew = velStep n u v zeroGrid zeroGrid visc dt
+  let (vfield, dfield) = updateWater dens src vfieldnew dt n
   writeIORef
     sref
     state
-      { velocityField = addVfieldHeightDifferences vfield src dt n
-      , densityField = densStep n dens src u v diff dt
+      { velocityField = vfield
+      , densityField = dfield
       }
   postRedisplay Nothing
   return ()
@@ -224,24 +226,3 @@ main = do
   idleCallback $= Just (idleFunc state input)
   motionCallback $= Just (mouseMotionFunc input)
   mainLoop
--- main :: IO ()
--- main = do
---   initializeAll
---   window <- createWindow "My SDL Application" defaultWindow
---   renderer <- createRenderer window (-1) defaultRenderer
---   appLoop renderer
---   destroyWindow window
--- appLoop :: Renderer -> IO ()
--- appLoop renderer = do
---   events <- pollEvents
---   let eventIsQPress event =
---         case eventPayload event of
---           KeyboardEvent keyboardEvent ->
---             keyboardEventKeyMotion keyboardEvent == Pressed
---               && keysymKeycode (keyboardEventKeysym keyboardEvent) == KeycodeQ
---           _ -> False
---       qPressed = any eventIsQPress events
---   rendererDrawColor renderer $= V4 0 0 0 0
---   clear renderer
---   present renderer
---   unless qPressed (appLoop renderer)

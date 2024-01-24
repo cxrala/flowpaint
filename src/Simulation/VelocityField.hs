@@ -1,6 +1,8 @@
 module Simulation.VelocityField (
   densStep,
-  velStep
+  velStep,
+  diffuse,
+  advect
 )
 where
 
@@ -147,7 +149,7 @@ densStep n x x0 u v diff dt =
            && (padN, padN) == matrixDims u
            && (padN, padN) == matrixDims v)
         (let densAfterSource = addSource x x0 dt
-             diffused = diffuse n 0 densAfterSource densAfterSource diff dt
+             diffused = diffuse n 0 x0 densAfterSource diff dt
           in advect n 0 diffused u v dt)
 
 -- x0 is initially the source vector
