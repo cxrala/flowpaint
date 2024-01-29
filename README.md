@@ -1,5 +1,5 @@
 # Flowpaint
-A reactive live painting software. The goal is to integrate it with some FRP framework (yampa).
+A functional reactive live painting software. The goal is to integrate it with some FRP framework (yampa).
 
 For now, it is:
 
