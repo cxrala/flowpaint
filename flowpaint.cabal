@@ -25,6 +25,7 @@ library
   exposed-modules:
     Simulation.VelocityField
     Simulation.WaterQuantities
+    Simulation.SurfaceLayer
     Utils.Matrix
 
   build-depends:

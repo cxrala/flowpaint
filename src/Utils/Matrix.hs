@@ -12,6 +12,7 @@ module Utils.Matrix
   , matrixUnsafeUpd
   , matrixSetBnd
   , matrixGenerate
+  , matrixEq
   ) where
 
 import           Control.Monad
@@ -133,3 +134,7 @@ matrixSetBnd n b m =
               setBoundVal (n + 1, 1) (n, 0) (n + 1, 1)
               setBoundVal (n + 1, n) (n, n + 1) (n + 1, n)
    in m {vector = inPlace sbHelper (vector m)}
+
+matrixEq :: (V.Unbox a, Ord a) => Matrix a -> Matrix a -> Bool
+matrixEq mA mB =
+  V.eqBy (==) (vector mA) (vector mB)

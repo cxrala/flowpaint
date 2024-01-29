@@ -23,6 +23,8 @@ import           System.Exit                (ExitCode (ExitSuccess),
                                              exitSuccess, exitWith)
 import qualified Utils.Matrix               as M
 import           Utils.Matrix               (matrixNeighbours)
+import Data.Ord (clamp)
+import Simulation.SurfaceLayer (calculateSurfaceLayer)
 
 screenWidth :: Int32
 screenHeight :: Int32
@@ -30,7 +32,7 @@ screensize@(screenWidth, screenHeight) = (900, 900)
 
 -- grid size
 n :: Int
-n = 30
+n = 50
 
 -- time step
 dt :: Double
@@ -54,7 +56,9 @@ source = 1000.0
 
 data State = State
   { densityField  :: M.Matrix Double
+  , pigmentField :: M.Matrix Double
   , velocityField :: (M.Matrix Double, M.Matrix Double)
+  , surfaceLayer :: M.Matrix Double
   }
 
 data Input = Input
@@ -66,8 +70,10 @@ data Input = Input
 initialState =
   State
     { densityField = M.matrixInit (n + 2, n + 2) 0
+    , pigmentField = M.matrixInit (n + 2, n + 2) 0
     , velocityField =
         (M.matrixInit (n + 2, n + 2) 0, M.matrixInit (n + 2, n + 2) 0)
+    , surfaceLayer = M.matrixInit (n + 2, n + 2) 0
     }
 
 initialInput =
@@ -94,22 +100,23 @@ drawDensity m = do
         [(x, y) | x <- [1 .. n], y <- [1 .. n]]
         (\(i, j) -> do
            let [d00, d01, d10, d11] = getQuadDens (i, j) m
-           colorVertex (Color3 d00 d00 d00) $ Vertex2 (f i) (f j)
-           colorVertex (Color3 d00 d00 d00) $ Vertex2 (f i + h) (f j)
-           colorVertex (Color3 d00 d00 d00) $ Vertex2 (f i + h) (f j + h)
-           colorVertex (Color3 d00 d00 d00) $ Vertex2 (f i) (f j + h))
+           let c x = 1 - clamp (0, 1) x
+           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j)
+           colorVertex (Color3 (c d01) (c d01) 1) $ Vertex2 (f i + h) (f j)
+           colorVertex (Color3 (c d10) (c d10) 1) $ Vertex2 (f i + h) (f j + h)
+           colorVertex (Color3 (c d11) (c d11) 1) $ Vertex2 (f i) (f j + h))
   flush
 
 displayFunc :: IORef State -> DisplayCallback
 displayFunc s = do
   clear [ColorBuffer]
   state <- readIORef s
-  drawDensity $ densityField state
+  drawDensity $ surfaceLayer state
   swapBuffers
 
 pos :: Int -> (Int, Int) -> (Int, Int) -> (Int, Int)
 pos n (width, height) (x, y) =
-  (truncate (dx / dw * dn), n - truncate (dy / dh * dn))
+  (truncate (dx / dw * dn) + 1, n - truncate (dy / dh * dn))
   where
     dx = fromIntegral x :: Double
     dy = fromIntegral y :: Double
@@ -173,21 +180,26 @@ idleFunc sref iref = do
   state <- readIORef sref
   let (u, v) = velocityField state
   let dens = densityField state
+  let pigment = pigmentField state
+  let surface = surfaceLayer state
   -- If necessary, update the prev values
   src <-
     if mouseDown input
       then updateStateFromUI iref
       else return zeroGrid
-  let vfieldnew = velStep n u v zeroGrid zeroGrid visc dt
-  let (vfield, dfield) = updateWater dens src vfieldnew dt n
+  let vstep = velStep n u v zeroGrid zeroGrid visc dt
+  let dstep = densStep n dens src u v diff dt
+  let (vField, dField) = updateWater dstep vstep dt n
+  let (newPigmentLayer, newSurfaceLayer) = calculateSurfaceLayer dstep surface dField dt
   writeIORef
     sref
     state
-      { velocityField = vfield
-      , densityField = dfield
+      { velocityField = vField
+      , densityField = dField
+      , pigmentField = newPigmentLayer
+      , surfaceLayer = newSurfaceLayer
       }
   postRedisplay Nothing
-  return ()
 
 ------- KEYBOARD INPUT AND HANDLING
 setMouseData :: KeyState -> (Int, Int) -> Input
@@ -218,7 +230,6 @@ main = do
   initialWindowSize $= Size screenWidth screenHeight
   initialWindowPosition $= Position 0 0
   _ <- G.createWindow "flowpaint"
-  clearColor $= Color4 0 0 0 1
   state <- newIORef initialState
   input <- newIORef initialInput
   displayCallback $= displayFunc state
