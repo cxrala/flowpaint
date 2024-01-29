@@ -3,7 +3,6 @@ A functional reactive live painting software. The goal is to integrate it with s
 
 For now, it is:
 
-![Alt Text](ScreenRecording2024-01-29at17.26.301-ezgif.com-speed.gif)
 <img src="ScreenRecording2024-01-29at17.26.301-ezgif.com-speed.gif" width="300" height="300" />
 
 
