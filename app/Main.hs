@@ -25,6 +25,7 @@ import qualified Utils.Matrix               as M
 import           Utils.Matrix               (matrixNeighbours)
 import Data.Ord (clamp)
 import Simulation.SurfaceLayer (calculateSurfaceLayer)
+import Simulation.Capillary (genPoints, getWorleyNoise)
 
 screenWidth :: Int32
 screenHeight :: Int32
@@ -59,6 +60,7 @@ data State = State
   , pigmentField :: M.Matrix Double
   , velocityField :: (M.Matrix Double, M.Matrix Double)
   , surfaceLayer :: M.Matrix Double
+  , noise :: Int
   }
 
 data Input = Input
@@ -74,6 +76,7 @@ initialState =
     , velocityField =
         (M.matrixInit (n + 2, n + 2) 0, M.matrixInit (n + 2, n + 2) 0)
     , surfaceLayer = M.matrixInit (n + 2, n + 2) 0
+    , noise = 0
     }
 
 initialInput =
@@ -102,16 +105,19 @@ drawDensity m = do
            let [d00, d01, d10, d11] = getQuadDens (i, j) m
            let c x = 1 - clamp (0, 1) x
            colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j)
-           colorVertex (Color3 (c d01) (c d01) 1) $ Vertex2 (f i + h) (f j)
-           colorVertex (Color3 (c d10) (c d10) 1) $ Vertex2 (f i + h) (f j + h)
-           colorVertex (Color3 (c d11) (c d11) 1) $ Vertex2 (f i) (f j + h))
+           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i + h) (f j)
+           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i + h) (f j + h)
+           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j + h))
   flush
 
 displayFunc :: IORef State -> DisplayCallback
 displayFunc s = do
   clear [ColorBuffer]
   state <- readIORef s
-  drawDensity $ surfaceLayer state
+  let n = noise state
+  let dims = M.matrixDims $ surfaceLayer state
+  let points = genPoints n dims
+  drawDensity $ getWorleyNoise points dims 
   swapBuffers
 
 pos :: Int -> (Int, Int) -> (Int, Int) -> (Int, Int)

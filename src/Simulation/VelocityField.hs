@@ -38,7 +38,7 @@ diffuse ::
   -> Double
   -> DensityField
 diffuse n b x x0 diff dt =
-  let a = dt * diff * fromIntegral n * fromIntegral n
+  let a = dt * diff * fromIntegral n * fromIntegral n 
       diffused = matrixSetBnd n b
           . (\y -> matrixImapCheckbounds
               (1, 1, n, n)

@@ -13,6 +13,7 @@ module Utils.Matrix
   , matrixSetBnd
   , matrixGenerate
   , matrixEq
+  , matrixFromList
   ) where
 
 import           Control.Monad
@@ -21,6 +22,7 @@ import           Data.Tuple
 import           Data.Vector.Unboxed ((!))
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Vector.Unboxed.Mutable as MV
+import           Control.Exception (assert)
 
 data Matrix a = Matrix
   { vector :: !(V.Vector a)
@@ -51,6 +53,11 @@ matrixInit dims@(rows, cols) val =
 matrixGenerate :: V.Unbox a => (Int, Int) -> ((Int, Int) -> a) -> Matrix a
 matrixGenerate dims@(x, y) f =
   Matrix {vector = V.generate (x * y) $ f . (`raiseDimsWidth` y), dims = dims}
+
+matrixFromList :: V.Unbox a => [a] -> (Int, Int) -> Matrix a
+matrixFromList l dims@(x, y) =
+  let v = V.fromList l in
+    assert (V.length v == x * y) (Matrix {vector = V.fromList l, dims = dims})
 
 matrixGet :: V.Unbox a => (Int, Int) -> Matrix a -> a
 matrixGet ij m = vector m ! flattenDims ij m

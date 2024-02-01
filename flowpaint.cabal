@@ -26,12 +26,14 @@ library
     Simulation.VelocityField
     Simulation.WaterQuantities
     Simulation.SurfaceLayer
+    Simulation.Capillary
     Utils.Matrix
 
   build-depends:
     , base    ^>=4.17.2.0
     , vector
-
+    , hashable
+    , random
   hs-source-dirs:  src
 
 executable flowpaint
