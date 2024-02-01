@@ -28,6 +28,7 @@ library
     Simulation.SurfaceLayer
     Simulation.Capillary
     Utils.Matrix
+    Utils.Fields
 
   build-depends:
     , base    ^>=4.17.2.0

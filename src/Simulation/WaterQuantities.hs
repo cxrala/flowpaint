@@ -4,71 +4,70 @@ module Simulation.WaterQuantities
   ) where
 
 import           Data.Ord     (clamp)
-import qualified Utils.Matrix as M
-import           Utils.Matrix
+import           Utils.Fields (ScalarField, VelocityField, elementwiseCombine)
+import           Utils.Matrix (matrixGet, matrixImapCheckbounds, matrixMap)
+import           Simulation.VelocityField (diffuse, advect)
 
+-- some global constants. TODO: figure out exactly how to structure these.
+wh = 0.06
 
-type WaterQuantities = Matrix Double -- the density field corresponds to water here.
+wi = 1 - wh
 
-type VelocityFieldX = Matrix Double
+epsEvaporation = 0.003
+diff = 0.0001
 
-type VelocityFieldY = Matrix Double
-
-type Source = Matrix Double
-
-addSource :: WaterQuantities -> Source -> Double -> WaterQuantities
-addSource waterQuantities source dt =
-  matrixImap (\idxs dprev -> dprev + dt * matrixGet idxs source) waterQuantities
-
--- 4.1 water diffusion
-heightEqualizingVelocityField ::
-     WaterQuantities -> Double -> Int -> (VelocityFieldX, VelocityFieldY) -- a linear relationship between water heights has been assumed
-heightEqualizingVelocityField w coef n =
-  let vx =
-        M.matrixImapCheckbounds
-          (1, 1, n, n)
-          (\(x, y) _ ->
-             coef * (M.matrixGet (x - 1, y) w - M.matrixGet (x + 1, y) w))
-          w
-      vy =
-        M.matrixImapCheckbounds
-          (1, 1, n, n)
-          (\(x, y) _ ->
-             coef * (M.matrixGet (x, y - 1) w - M.matrixGet (x, y + 1) w))
-          w
-   in (vx, vy)
-
+-- This updated velocity field models the tendency for water to "fill unused spaces" -- leading to the dark edge effect. See 4.1, water diffusion.
 addVfieldHeightDifferences ::
-     (VelocityFieldX, VelocityFieldY)
-  -> WaterQuantities
-  -> Double
-  -> Int
-  -> (VelocityFieldX, VelocityFieldY)
+     VelocityField -> ScalarField -> Double -> Int -> VelocityField
 addVfieldHeightDifferences v@(vx, vy) w dt n =
-  let wh = 0.06
-      wi = 1.0 - wh
-      (vhx, vhy) = heightEqualizingVelocityField w 0.05 n
-      vxnew =
-        matrixImap (\idxs vprev -> vprev * wi + wh * matrixGet idxs vhx) vx
-      vynew =
-        matrixImap (\idxs vprev -> vprev * wi + wh * matrixGet idxs vhy) vy
-   in (vxnew, vynew)
+  let (vhx, vhy) = heightEqualizingVelocityField w 0.05 n
+      getNewVelocities =
+        elementwiseCombine (\vField hField -> vField * wi + hField * wh)
+   in (getNewVelocities vx vhx, getNewVelocities vy vhy)
+  where
+    heightEqualizingVelocityField waterField coef n =
+      let adjacent isX (x, y)
+            | isX = ((x - 1, y), (x + 1, y))
+            | otherwise = ((x, y - 1), (x, y + 1))
+          updateVelocityField isX =
+            matrixImapCheckbounds
+              (1, 1, n, n)
+              (\(x, y) _ ->
+                 let (n1, n2) = adjacent isX (x, y)
+                  in coef * (matrixGet n1 waterField - matrixGet n2 waterField))
+              waterField
+       in (updateVelocityField True, updateVelocityField False)
 
+-- Some epsilon amount of water evaporates every timestep. Only the top is implemented. TODO: implement side evaporation.
+evaporateWater :: ScalarField -> Double -> ScalarField
+evaporateWater w dt =
+  matrixMap (\wPrev -> clamp (0, 100) (wPrev - epsEvaporation * dt)) w
 
+-- Source addition.
+addSource :: ScalarField -> ScalarField -> Double -> ScalarField
+addSource waterQuantities source dt =
+  elementwiseCombine (\a b -> a + dt * b) waterQuantities source
+
+-- 4.1 Diffusion. TODO: for now, equivalent to velocity field implementation.
+diffuseWater :: Int -> Int -> ScalarField -> ScalarField -> Double -> Double -> ScalarField
+diffuseWater = diffuse
+
+-- 4.1 Advection. TODO: for now, equivalent to velocity field implementation.
+advectWater :: Int -> Int -> ScalarField -> VelocityField -> Double -> ScalarField
+advectWater = advect
 
 -- calculateVolDisplaced :: Double -> Double -> Double -> (Double, Double, Double -> Double -> Bool) -> Double
 -- calculateVolDisplaced dt wPrev vCentre (vNeighbour, wNeighbour, fUpRight) =
 --     let vAvrg = vCentre + vNeighbour / 2 in
 --         if vAvrg `fUpRight` 0 then vAvrg * dt * wNeighbour
 --         else vAvrg * dt * wPrev
-
 -- -- 4.1 water advection
 -- advectWater ::
---      (VelocityFieldX, VelocityFieldY)
---   -> WaterQuantities
+--      VelocityField
+--   -> ScalarField
 --   -> Double
 --   -> Int
---   -> WaterQuantities
+--   -> ScalarField
 -- advectWater v@(vx, vy) w dt n =
 --   matrixImapCheckbounds
 --     (1, 1, n, n)
@@ -83,26 +82,21 @@ addVfieldHeightDifferences v@(vx, vy) w dt n =
 --         in clamp (0, 100) (wPrev + 0.0001))
 --     w
 
--- need to do sides as well
-evaporateWater :: WaterQuantities -> Double -> WaterQuantities
-evaporateWater w dt =
-  let eps = 0.003
-   in matrixMap (\wPrev -> clamp (0, 100) (wPrev - eps * dt)) w
-
--- diff :: Double
--- diff = 0.0001
-
--- exported methods
+-- EXPORTED
 updateWater ::
-     WaterQuantities
-  -> (VelocityFieldX, VelocityFieldY)
+     ScalarField
+  -> ScalarField
+  -> ScalarField
+  -> VelocityField
   -> Double
   -> Int
-  -> ((VelocityFieldX, VelocityFieldY), WaterQuantities)
-updateWater waterQuantities v@(vx, vy) dt n =
+  -> (VelocityField, ScalarField)
+updateWater waterQuantities source heightMap v@(vx, vy) dt n =
   let vNew@(vxNew, vyNew) = addVfieldHeightDifferences v waterQuantities dt n
-    --   wNew = addSource waterQuantities source dt
-    --   diffused = diffuse n 0 source wNew diff dt
-    --   advected = advectWater v diffused dt n
-      evaporated = evaporateWater waterQuantities dt
+      wNew = addSource waterQuantities source dt
+      diffused = diffuse n 0 source wNew diff dt
+      advected = advectWater n 0 diffused (vxNew, vyNew) dt
+      clamped = elementwiseCombine (\height water -> clamp (0, height) water) heightMap advected
+      -- clamped = matrixMap (clamp (0, 1)) advected
+      evaporated = evaporateWater clamped dt
    in (vNew, evaporated)

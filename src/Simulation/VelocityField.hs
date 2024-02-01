@@ -1,28 +1,22 @@
-module Simulation.VelocityField (
-  densStep,
-  velStep,
-  diffuse,
-  advect
-)
-where
+module Simulation.VelocityField
+  ( densStep
+  , velStep
+  , diffuse
+  , advect
+  ) where
 
 import           Control.Exception (assert)
 import           Data.Ord
 import           Data.Vector       ((!))
 import qualified Data.Vector       as V
+import           Utils.Fields
 import           Utils.Matrix
 
 -- for now, implemented almost identically to
 -- http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf
-type DensityField = Matrix Double
+type VelocityFieldComponent = Matrix Double
 
-type VelocityFieldX = Matrix Double
-
-type VelocityFieldY = Matrix Double
-
-type Source = Matrix Double
-
-addSource :: DensityField -> Source -> Double -> DensityField
+addSource :: ScalarField -> ScalarField -> Double -> ScalarField
 addSource densityField source dt =
   matrixImap (\idxs dprev -> dprev + dt * matrixGet idxs source) densityField
 
@@ -30,32 +24,28 @@ addSource densityField source dt =
 -- note: should probably change to gauss-seidel if you can figure out how to make it pure.
 -- why? convergence is faster (twice as fast) and also requires less storage.
 diffuse ::
-     Int
-  -> Int
-  -> DensityField
-  -> DensityField
-  -> Double
-  -> Double
-  -> DensityField
+     Int -> Int -> ScalarField -> ScalarField -> Double -> Double -> ScalarField
 diffuse n b x x0 diff dt =
-  let a = dt * diff * fromIntegral n * fromIntegral n 
-      diffused = matrixSetBnd n b
-          . (\y -> matrixImapCheckbounds
-              (1, 1, n, n)
-              (\idxs dprev ->
-                 (matrixGet idxs x0 + a * sum (matrixNeighbours idxs y))
-                   / (1 + 4 * a)) y)
+  let a = dt * diff * fromIntegral n * fromIntegral n
+      diffused =
+        matrixSetBnd n b
+          . (\y ->
+               matrixImapCheckbounds
+                 (1, 1, n, n)
+                 (\idxs dprev ->
+                    (matrixGet idxs x0 + a * sum (matrixNeighbours idxs y))
+                      / (1 + 4 * a))
+                 y)
    in iterate diffused x !! 5
 
 advect ::
      Int
   -> Int
-  -> DensityField
-  -> VelocityFieldX
-  -> VelocityFieldY
+  -> ScalarField
+  -> VelocityField
   -> Double
-  -> DensityField
-advect n b d0 u v dt =
+  -> ScalarField
+advect n b d0 (u, v) dt =
   let dt0 = dt * fromIntegral n
       d =
         matrixImapCheckbounds
@@ -81,7 +71,7 @@ advect n b d0 u v dt =
    in matrixSetBnd n b d
 
 project ::
-     Int -> VelocityFieldX -> VelocityFieldY -> (VelocityFieldX, VelocityFieldY)
+     Int -> VelocityFieldComponent -> VelocityFieldComponent -> VelocityField
 project n u v =
   let h = 1 / fromIntegral n
       div =
@@ -101,10 +91,13 @@ project n u v =
         let solvStep -- TODO: lift linsolver out of functions diffuse and here
              =
               matrixSetBnd n 0
-                . (\y -> matrixImapCheckbounds
-                    (1, 1, n, n)
-                    (\idxs dprev ->
-                       (matrixGet idxs div + sum (matrixNeighbours idxs y)) / 4) y)
+                . (\y ->
+                     matrixImapCheckbounds
+                       (1, 1, n, n)
+                       (\idxs dprev ->
+                          (matrixGet idxs div + sum (matrixNeighbours idxs y))
+                            / 4)
+                       y)
          in iterate solvStep p !! 5
       newU =
         matrixSetBnd n 1
@@ -134,48 +127,44 @@ project n u v =
 -- x is the original density vector
 densStep ::
      Int
-  -> DensityField
-  -> DensityField
-  -> VelocityFieldX
-  -> VelocityFieldY
+  -> ScalarField
+  -> ScalarField
+  -> VelocityField
   -> Double
   -> Double
-  -> DensityField
-densStep n x x0 u v diff dt =
+  -> ScalarField
+densStep n dPrev source (u, v) diff dt =
   let padN = n + 2
    in assert
-        ((padN, padN) == matrixDims x
-           && (padN, padN) == matrixDims x0
+        ((padN, padN) == matrixDims dPrev
+           && (padN, padN) == matrixDims source
            && (padN, padN) == matrixDims u
            && (padN, padN) == matrixDims v)
-        (let densAfterSource = addSource x x0 dt
-             diffused = diffuse n 0 x0 densAfterSource diff dt
-             advected = advect n 0 diffused u v dt
-             in matrixMap (clamp (0, 1)) advected)
+        (let densAfterSource = addSource dPrev source dt
+             diffused = diffuse n 0 source densAfterSource diff dt
+             in advect n 0 diffused (u, v) dt)
 
 -- x0 is initially the source vector
 -- x is the original density vector
 velStep ::
      Int
-  -> VelocityFieldX
-  -> VelocityFieldY
-  -> VelocityFieldX
-  -> VelocityFieldY
+  -> VelocityField
+  -> VelocityField
   -> Double
   -> Double
-  -> (VelocityFieldX, VelocityFieldY)
-velStep n u v u0 v0 visc dt =
+  -> VelocityField
+velStep n (u, v) (u0, v0) visc dt =
   let padN = n + 2
-    in assert
-          ((padN, padN) == matrixDims u
-              && (padN, padN) == matrixDims v
-              && (padN, padN) == matrixDims u0
-              && (padN, padN) == matrixDims v0)
-          (let usrc = addSource u u0 dt
-               vsrc = addSource v v0 dt
-               diffusedu = diffuse n 1 u0 usrc visc dt
-               diffusedv = diffuse n 2 v0 vsrc visc dt
-               (uproj, vproj) = project n diffusedu diffusedv
-               advu = advect n 1 usrc diffusedu diffusedv dt
-               advv = advect n 1 vsrc diffusedu diffusedv dt
-            in project n advu advv)
+   in assert
+        ((padN, padN) == matrixDims u
+           && (padN, padN) == matrixDims v
+           && (padN, padN) == matrixDims u0
+           && (padN, padN) == matrixDims v0)
+        (let usrc = addSource u u0 dt
+             vsrc = addSource v v0 dt
+             diffusedu = diffuse n 1 u0 usrc visc dt
+             diffusedv = diffuse n 2 v0 vsrc visc dt
+             (uproj, vproj) = project n diffusedu diffusedv
+             advu = advect n 1 usrc (diffusedu, diffusedv) dt
+             advv = advect n 1 vsrc (diffusedu, diffusedv) dt
+          in project n advu advv)

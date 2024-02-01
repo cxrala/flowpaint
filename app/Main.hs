@@ -18,14 +18,14 @@ import           Data.List                  (sort, unfoldr)
 import           Simulation.VelocityField   (densStep, velStep)
 import           Simulation.WaterQuantities (updateWater)
 
+import           Data.Ord                   (clamp)
 import           Data.Tuple
+import           Simulation.Capillary       (genPoints, getWorleyNoise)
+import           Simulation.SurfaceLayer    (calculateSurfaceLayer)
 import           System.Exit                (ExitCode (ExitSuccess),
                                              exitSuccess, exitWith)
 import qualified Utils.Matrix               as M
 import           Utils.Matrix               (matrixNeighbours)
-import Data.Ord (clamp)
-import Simulation.SurfaceLayer (calculateSurfaceLayer)
-import Simulation.Capillary (genPoints, getWorleyNoise)
 
 screenWidth :: Int32
 screenHeight :: Int32
@@ -34,6 +34,8 @@ screensize@(screenWidth, screenHeight) = (900, 900)
 -- grid size
 n :: Int
 n = 50
+
+dims = (n + 2, n + 2)
 
 -- time step
 dt :: Double
@@ -57,10 +59,10 @@ source = 1000.0
 
 data State = State
   { densityField  :: M.Matrix Double
-  , pigmentField :: M.Matrix Double
+  , pigmentField  :: M.Matrix Double
   , velocityField :: (M.Matrix Double, M.Matrix Double)
-  , surfaceLayer :: M.Matrix Double
-  , noise :: Int
+  , surfaceLayer  :: M.Matrix Double
+  , heightMap     :: M.Matrix Double
   }
 
 data Input = Input
@@ -71,12 +73,11 @@ data Input = Input
 
 initialState =
   State
-    { densityField = M.matrixInit (n + 2, n + 2) 0
-    , pigmentField = M.matrixInit (n + 2, n + 2) 0
-    , velocityField =
-        (M.matrixInit (n + 2, n + 2) 0, M.matrixInit (n + 2, n + 2) 0)
-    , surfaceLayer = M.matrixInit (n + 2, n + 2) 0
-    , noise = 0
+    { densityField = M.matrixInit dims 0
+    , pigmentField = M.matrixInit dims 0
+    , velocityField = (M.matrixInit dims 0, M.matrixInit dims 0)
+    , surfaceLayer = M.matrixInit dims 0
+    , heightMap = getWorleyNoise (genPoints 3 dims) dims
     }
 
 initialInput =
@@ -105,19 +106,17 @@ drawDensity m = do
            let [d00, d01, d10, d11] = getQuadDens (i, j) m
            let c x = 1 - clamp (0, 1) x
            colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j)
-           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i + h) (f j)
-           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i + h) (f j + h)
-           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j + h))
+           colorVertex (Color3 (c d01) (c d01) 1) $ Vertex2 (f i + h) (f j)
+           colorVertex (Color3 (c d10) (c d10) 1) $ Vertex2 (f i + h) (f j + h)
+           colorVertex (Color3 (c d11) (c d11) 1) $ Vertex2 (f i) (f j + h))
   flush
 
 displayFunc :: IORef State -> DisplayCallback
 displayFunc s = do
   clear [ColorBuffer]
   state <- readIORef s
-  let n = noise state
-  let dims = M.matrixDims $ surfaceLayer state
-  let points = genPoints n dims
-  drawDensity $ getWorleyNoise points dims 
+  -- drawDensity $ getWorleyNoise points dims
+  drawDensity $ surfaceLayer state
   swapBuffers
 
 pos :: Int -> (Int, Int) -> (Int, Int) -> (Int, Int)
@@ -184,19 +183,20 @@ idleFunc :: IORef State -> IORef Input -> IdleCallback
 idleFunc sref iref = do
   input <- readIORef iref
   state <- readIORef sref
-  let (u, v) = velocityField state
+  let vfield = velocityField state
   let dens = densityField state
   let pigment = pigmentField state
   let surface = surfaceLayer state
+  let hmap = heightMap state
   -- If necessary, update the prev values
   src <-
     if mouseDown input
       then updateStateFromUI iref
       else return zeroGrid
-  let vstep = velStep n u v zeroGrid zeroGrid visc dt
-  let dstep = densStep n dens src u v diff dt
-  let (vField, dField) = updateWater dstep vstep dt n
-  let (newPigmentLayer, newSurfaceLayer) = calculateSurfaceLayer dstep surface dField dt
+  let vstep = velStep n vfield (zeroGrid, zeroGrid) visc dt
+  let (vField, dField) = updateWater dens src hmap vstep dt n
+  let (newPigmentLayer, newSurfaceLayer) =
+        calculateSurfaceLayer dField surface dField dt
   writeIORef
     sref
     state
