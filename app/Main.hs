@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module Main (
+  main
+) where
 
 import           Control.Monad
 import           Data.Word                  (Word32)
@@ -20,7 +22,7 @@ import           Simulation.WaterQuantities (updateWater)
 
 import           Data.Ord                   (clamp)
 import           Data.Tuple
-import           Simulation.Capillary       (genPoints, getWorleyNoise)
+import           Simulation.Capillary       (genPoints, getWorleyNoise, simulateCapillaryFlow)
 import           Simulation.SurfaceLayer    (calculateSurfaceLayer)
 import           System.Exit                (ExitCode (ExitSuccess),
                                              exitSuccess, exitWith)
@@ -33,6 +35,7 @@ screensize@(screenWidth, screenHeight) = (900, 900)
 
 -- grid size
 n :: Int
+
 n = 50
 
 dims = (n + 2, n + 2)
@@ -58,11 +61,13 @@ source :: Double
 source = 1000.0
 
 data State = State
-  { densityField  :: M.Matrix Double
+  { waterDensity  :: M.Matrix Double
   , pigmentField  :: M.Matrix Double
   , velocityField :: (M.Matrix Double, M.Matrix Double)
   , surfaceLayer  :: M.Matrix Double
   , heightMap     :: M.Matrix Double
+  , capillaryLayer :: M.Matrix Double
+  , mask          :: M.Matrix Bool
   }
 
 data Input = Input
@@ -73,11 +78,13 @@ data Input = Input
 
 initialState =
   State
-    { densityField = M.matrixInit dims 0
+    { waterDensity = M.matrixInit dims 0
     , pigmentField = M.matrixInit dims 0
     , velocityField = (M.matrixInit dims 0, M.matrixInit dims 0)
     , surfaceLayer = M.matrixInit dims 0
     , heightMap = getWorleyNoise (genPoints 3 dims) dims
+    , capillaryLayer = M.matrixInit dims 0
+    , mask = M.matrixInit dims False
     }
 
 initialInput =
@@ -103,20 +110,20 @@ drawDensity m = do
     $ forM_
         [(x, y) | x <- [1 .. n], y <- [1 .. n]]
         (\(i, j) -> do
-           let [d00, d01, d10, d11] = getQuadDens (i, j) m
+           let [d00, d10, d11, d01] = getQuadDens (i, j) m
            let c x = 1 - clamp (0, 1) x
            colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j)
-           colorVertex (Color3 (c d01) (c d01) 1) $ Vertex2 (f i + h) (f j)
-           colorVertex (Color3 (c d10) (c d10) 1) $ Vertex2 (f i + h) (f j + h)
-           colorVertex (Color3 (c d11) (c d11) 1) $ Vertex2 (f i) (f j + h))
+           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i + h) (f j)
+           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i + h) (f j + h)
+           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j + h))
   flush
 
 displayFunc :: IORef State -> DisplayCallback
 displayFunc s = do
   clear [ColorBuffer]
   state <- readIORef s
-  -- drawDensity $ getWorleyNoise points dims
   drawDensity $ surfaceLayer state
+  -- print $ waterDensity state
   swapBuffers
 
 pos :: Int -> (Int, Int) -> (Int, Int) -> (Int, Int)
@@ -184,26 +191,30 @@ idleFunc sref iref = do
   input <- readIORef iref
   state <- readIORef sref
   let vfield = velocityField state
-  let dens = densityField state
-  let pigment = pigmentField state
+  let water = waterDensity state
   let surface = surfaceLayer state
   let hmap = heightMap state
+  let capillary = capillaryLayer state
+  let stroke = mask state
   -- If necessary, update the prev values
   src <-
     if mouseDown input
       then updateStateFromUI iref
       else return zeroGrid
   let vstep = velStep n vfield (zeroGrid, zeroGrid) visc dt
-  let (vField, dField) = updateWater dens src hmap vstep dt n
+  let (vField, dField) = updateWater water src hmap vstep stroke dt n
   let (newPigmentLayer, newSurfaceLayer) =
-        calculateSurfaceLayer dField surface dField dt
+        calculateSurfaceLayer dField surface dField hmap dt
+  let (newCapillary, newShallowFluid, newMask) = simulateCapillaryFlow capillary dField hmap n diff dt
   writeIORef
     sref
     state
       { velocityField = vField
-      , densityField = dField
+      , waterDensity = dField
       , pigmentField = newPigmentLayer
       , surfaceLayer = newSurfaceLayer
+      , capillaryLayer = newCapillary
+      , mask = newMask
       }
   postRedisplay Nothing
 

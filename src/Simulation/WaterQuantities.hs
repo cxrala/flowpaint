@@ -3,10 +3,12 @@ module Simulation.WaterQuantities
   ( updateWater
   ) where
 
-import           Data.Ord     (clamp)
-import           Utils.Fields (ScalarField, VelocityField, elementwiseCombine)
-import           Utils.Matrix (matrixGet, matrixImapCheckbounds, matrixMap)
-import           Simulation.VelocityField (diffuse, advect)
+import           Data.Ord                 (clamp)
+import           Simulation.VelocityField (advect, diffuse)
+import           Utils.Fields             (ScalarField, VelocityField,
+                                           elementwiseCombine)
+import           Utils.Matrix             (Matrix, matrixGet,
+                                           matrixImapCheckbounds, matrixMap, matrixInit, matrixDims)
 
 -- some global constants. TODO: figure out exactly how to structure these.
 wh = 0.06
@@ -14,6 +16,9 @@ wh = 0.06
 wi = 1 - wh
 
 epsEvaporation = 0.003
+
+maxCapacity = 1
+
 diff = 0.0001
 
 -- This updated velocity field models the tendency for water to "fill unused spaces" -- leading to the dark edge effect. See 4.1, water diffusion.
@@ -38,22 +43,34 @@ addVfieldHeightDifferences v@(vx, vy) w dt n =
               waterField
        in (updateVelocityField True, updateVelocityField False)
 
+setNormalToZero :: VelocityField -> Matrix Bool -> VelocityField
+setNormalToZero (vx, vy) mask =
+  let f mask val =
+        if mask
+          then val
+          else 0
+   in (elementwiseCombine f mask vx, elementwiseCombine f mask vy)
+
 -- Some epsilon amount of water evaporates every timestep. Only the top is implemented. TODO: implement side evaporation.
 evaporateWater :: ScalarField -> Double -> ScalarField
 evaporateWater w dt =
-  matrixMap (\wPrev -> clamp (0, 100) (wPrev - epsEvaporation * dt)) w
+  matrixMap (\wPrev -> max 0 (wPrev - epsEvaporation * dt)) w
 
 -- Source addition.
-addSource :: ScalarField -> ScalarField -> Double -> ScalarField
-addSource waterQuantities source dt =
-  elementwiseCombine (\a b -> a + dt * b) waterQuantities source
+addSource ::
+     ScalarField -> ScalarField  -> Matrix Bool -> Double -> (ScalarField, Matrix Bool)
+addSource waterQuantities source mask dt =
+  ( elementwiseCombine (\a b -> a + dt * b) waterQuantities source
+  , elementwiseCombine (\src mPrev -> src > 0 || mPrev) source mask)
 
 -- 4.1 Diffusion. TODO: for now, equivalent to velocity field implementation.
-diffuseWater :: Int -> Int -> ScalarField -> ScalarField -> Double -> Double -> ScalarField
+diffuseWater ::
+     Int -> Int -> ScalarField -> ScalarField -> Double -> Double -> ScalarField
 diffuseWater = diffuse
 
 -- 4.1 Advection. TODO: for now, equivalent to velocity field implementation.
-advectWater :: Int -> Int -> ScalarField -> VelocityField -> Double -> ScalarField
+advectWater ::
+     Int -> Int -> ScalarField -> VelocityField -> Double -> ScalarField
 advectWater = advect
 
 -- calculateVolDisplaced :: Double -> Double -> Double -> (Double, Double, Double -> Double -> Bool) -> Double
@@ -81,22 +98,35 @@ advectWater = advect
 --                 (vCentrey, (matrixGet (i, j + 1) vy, matrixGet (i, j + 1) w, (>)))]
 --         in clamp (0, 100) (wPrev + 0.0001))
 --     w
-
 -- EXPORTED
 updateWater ::
      ScalarField
   -> ScalarField
   -> ScalarField
   -> VelocityField
+  -> Matrix Bool
   -> Double
   -> Int
   -> (VelocityField, ScalarField)
-updateWater waterQuantities source heightMap v@(vx, vy) dt n =
-  let vNew@(vxNew, vyNew) = addVfieldHeightDifferences v waterQuantities dt n
-      wNew = addSource waterQuantities source dt
+updateWater waterQuantities source heightMap v@(vx, vy) mask dt n =
+  let vNew = addVfieldHeightDifferences v waterQuantities dt n
+      vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
+      (wNew, maskNew) = addSource waterQuantities source mask dt
       diffused = diffuse n 0 source wNew diff dt
       advected = advectWater n 0 diffused (vxNew, vyNew) dt
-      clamped = elementwiseCombine (\height water -> clamp (0, height) water) heightMap advected
+      clamped =
+        elementwiseCombine
+          (\height water -> clamp (0, height) water)
+          heightMap
+          advected
+      masked =
+        elementwiseCombine
+          (\mval val ->
+             if mval
+               then val
+               else 0)
+          maskNew
+          clamped
       -- clamped = matrixMap (clamp (0, 1)) advected
-      evaporated = evaporateWater clamped dt
+      evaporated = evaporateWater masked dt
    in (vNew, evaporated)
