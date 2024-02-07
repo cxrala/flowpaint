@@ -19,7 +19,7 @@ numP = 1
 
 n = 0
 threshhold = 0.3
-
+evaporation = 0.005
 clampPoints = 9
 
 alpha = 10
@@ -84,9 +84,11 @@ absorbShallow capillaryLayer shallowFluidLayer heightMap dt =
       , elementwiseCombine (-) shallowFluidLayer differences)
 
 diffuseCapillary :: ScalarField -> ScalarField -> Int -> Double -> Double -> ScalarField
-diffuseCapillary capillaryLayer heightMap n diff dt =
-    let diffused = diffuse n 0 (matrixInit (matrixDims capillaryLayer) 0) capillaryLayer diff dt in
-        diffused
+diffuseCapillary capillaryLayer heightMap n = diffuse n 0 (matrixInit (matrixDims capillaryLayer) 0) capillaryLayer
+
+evaporateCapillary :: ScalarField -> ScalarField -> Double -> ScalarField
+evaporateCapillary capillaryLayer shallowFieldLayer dt =
+  elementwiseCombine (\c s -> if s == 0 then max 0 (c - evaporation * dt) else c) capillaryLayer shallowFieldLayer
 
 getMask :: ScalarField -> ScalarField -> Matrix Bool
 getMask = elementwiseCombine (\quantity height -> quantity / height > threshhold)
@@ -94,5 +96,6 @@ getMask = elementwiseCombine (\quantity height -> quantity / height > threshhold
 simulateCapillaryFlow :: ScalarField -> ScalarField -> ScalarField -> Int -> Double -> Double -> (ScalarField, ScalarField, Matrix Bool)
 simulateCapillaryFlow capillaryLayer shallowFluidLayer heightMap n diff dt =
   let (newCapillary, newShallowFluid) = absorbShallow capillaryLayer shallowFluidLayer heightMap dt
-      diffused = diffuseCapillary newCapillary heightMap n diff dt in
-        (diffused, newShallowFluid, getMask capillaryLayer heightMap)
+      diffused = diffuseCapillary newCapillary heightMap n diff dt
+      evaporated = evaporateCapillary diffused newShallowFluid dt in 
+        (evaporated, newShallowFluid, getMask capillaryLayer heightMap)
