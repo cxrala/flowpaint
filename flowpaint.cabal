@@ -27,8 +27,12 @@ library
     Simulation.WaterQuantities
     Simulation.SurfaceLayer
     Simulation.Capillary
+    Simulation.Source
+    Simulation.State
     Utils.Matrix
     Utils.Fields
+    Interface.Canvas
+    Interface.UserInput
 
   build-depends:
     , base    ^>=4.17.2.0

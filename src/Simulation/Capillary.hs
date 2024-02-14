@@ -15,6 +15,9 @@ import           Utils.Matrix
 import Simulation.VelocityField (diffuse)
 import Data.Ord (clamp)
 
+
+-- TODO: refactor, this is a mess
+
 numP = 1
 
 n = 0

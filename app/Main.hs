@@ -42,7 +42,7 @@ dims = (n + 2, n + 2)
 
 -- time step
 dt :: Double
-dt = 0.1
+dt = 0.5
 
 -- diffusion rate
 diff :: Double
