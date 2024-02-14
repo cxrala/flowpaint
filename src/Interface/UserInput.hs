@@ -1,11 +1,11 @@
-module Interface.UserInput (
-    MouseInput,
-    mouseDown,
-    mousePos,
-    mousePosLast
-) where
+module Interface.UserInput
+  ( MouseInput(..)
+  , getMouseInput
+  , initialMouse
+  , getDuplicateMouseInput
+  ) where
 
-import Interface.Canvas
+import           Interface.Canvas
 
 -- the "scaled" mouse input (scaled to the position of the canvas, not the screen)
 data MouseInput = MouseInput
@@ -13,6 +13,8 @@ data MouseInput = MouseInput
   , mousePosLast :: (Int, Int)
   , mousePos     :: (Int, Int)
   } deriving (Show)
+
+type ScaledCanvas = (Int, Int)
 
 canvasPosFromScreen :: Int -> (Int, Int) -> (Int, Int) -> (Int, Int)
 canvasPosFromScreen n (width, height) (x, y) =
@@ -24,11 +26,21 @@ canvasPosFromScreen n (width, height) (x, y) =
     dw = fromIntegral width :: Double
     dh = fromIntegral height :: Double
 
-getMouseInput :: Bool -> ((Int, Int), Canvas) -> MouseInput -> MouseInput
-getMouseInput isDown (screenPosCurrent, canvas) prevMouseInput =
-    let prevMousePos = mousePosLast prevMouseInput in
-        prevMouseInput {
-            mouseDown = isDown,
-            mousePos = canvasPosFromScreen (canvasN canvas) (canvasScreen canvas) screenPosCurrent,
-            mousePosLast = mousePosLast prevMouseInput
-        }
+getMouseInput ::
+     Bool -> ((Int, Int), Canvas, ScaledCanvas) -> MouseInput -> MouseInput
+getMouseInput isDown (screenPosCurrent, canvas, scaling) prevMouseInput =
+  prevMouseInput
+    { mouseDown = isDown
+    , mousePos = canvasPosFromScreen (canvasN canvas) scaling screenPosCurrent
+    , mousePosLast = mousePos prevMouseInput
+    }
+
+initialMouse :: MouseInput
+initialMouse =
+  MouseInput {mouseDown = False, mousePosLast = (0, 0), mousePos = (0, 0)}
+
+getDuplicateMouseInput ::
+     Bool -> ((Int, Int), Canvas, ScaledCanvas) -> MouseInput
+getDuplicateMouseInput isDown canvasInfo =
+  let mouseFirst = getMouseInput isDown canvasInfo initialMouse
+   in getMouseInput isDown canvasInfo mouseFirst

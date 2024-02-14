@@ -1,15 +1,14 @@
-module Simulation.Source (
-    Source
-)
-where
+module Simulation.Source
+  ( Source
+  , getSourceFromMouseInput
+  ) where
 
-import Interface.UserInput
-import Utils.Fields
-import Data.List
-import Utils.Matrix
+import           Data.List
+import           Interface.UserInput
+import           Utils.Fields
+import           Utils.Matrix
 
 type Source = ScalarField
-
 
 -- TODO: taken from line function, figure out which one
 line :: (Int, Int) -> (Int, Int) -> [(Int, Int)]
@@ -37,14 +36,17 @@ line pa@(xa, ya) pb@(xb, yb) = map maySwitch . unfoldr go $ (x1, y1, 0)
             then (yTemp + ystep, tempError - deltax)
             else (yTemp, tempError)
 
-
-getSourceFromMouseInput :: MouseInput -> (Int, Int) -> Source
+getSourceFromMouseInput :: MouseInput -> (Int, Int) -> Maybe Source
 getSourceFromMouseInput mouseInput dims =
-    let mPrev = mousePosLast mouseInput
-        mCurr = mousePos mouseInput
-        linePixels = line mPrev mCurr in
-        matrixGenerate dims
-            (\x ->
-                if x `elem` linePixels
-                    then 1
-                    else 0)
+  if mouseDown mouseInput
+    then let mPrev = mousePosLast mouseInput
+             mCurr = mousePos mouseInput
+             linePixels = line mPrev mCurr
+          in Just
+               (matrixGenerate
+                  dims
+                  (\x ->
+                     if x `elem` linePixels
+                       then 1
+                       else 0))
+    else Nothing

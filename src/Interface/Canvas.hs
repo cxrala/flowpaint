@@ -1,7 +1,5 @@
 module Interface.Canvas (
-    Canvas,
-    canvasScreen,
-    canvasN,
+    Canvas(..),
     dimsFromN,
     nFromDims
 ) where
