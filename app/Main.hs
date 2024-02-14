@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main (
-  main
-) where
+module Main
+  ( main
+  ) where
 
 import           Control.Monad
 import           Data.Word                  (Word32)
@@ -22,73 +22,25 @@ import           Simulation.WaterQuantities (updateWater)
 
 import           Data.Ord                   (clamp)
 import           Data.Tuple
-import           Simulation.Capillary       (genPoints, getWorleyNoise, simulateCapillaryFlow)
+import           Simulation.Capillary       (genPoints, getWorleyNoise,
+                                             simulateCapillaryFlow)
 import           Simulation.SurfaceLayer    (calculateSurfaceLayer)
 import           System.Exit                (ExitCode (ExitSuccess),
                                              exitSuccess, exitWith)
 import qualified Utils.Matrix               as M
 import           Utils.Matrix               (matrixNeighbours)
 
-screenWidth :: Int32
-screenHeight :: Int32
-screensize@(screenWidth, screenHeight) = (900, 900)
+import           Interface.Canvas
+import           Interface.UserInput
+import Simulation.State
+import Simulation.Source
 
--- grid size
-n :: Int
-
-n = 50
-
-dims = (n + 2, n + 2)
-
--- time step
-dt :: Double
-dt = 0.5
-
--- diffusion rate
-diff :: Double
-diff = 0.0001
-
--- |Viscosity of the fluid
-visc :: Double
-visc = 0.0003
-
--- |Scales the mouse movement that generates a force
-force :: Double
-force = 5.0
-
--- |Amount of density that will be deposited
-source :: Double
-source = 1000.0
-
-data State = State
-  { waterDensity  :: M.Matrix Double
-  , pigmentField  :: M.Matrix Double
-  , velocityField :: (M.Matrix Double, M.Matrix Double)
-  , surfaceLayer  :: M.Matrix Double
-  , heightMap     :: M.Matrix Double
-  , capillaryLayer :: M.Matrix Double
-  , mask          :: M.Matrix Bool
-  }
-
-data Input = Input
-  { mouseDown    :: Bool
-  , mousePosLast :: (Int, Int)
-  , mousePos     :: (Int, Int)
-  } deriving (Show)
-
-initialState =
-  State
-    { waterDensity = M.matrixInit dims 0
-    , pigmentField = M.matrixInit dims 0
-    , velocityField = (M.matrixInit dims 0, M.matrixInit dims 0)
-    , surfaceLayer = M.matrixInit dims 0
-    , heightMap = getWorleyNoise (genPoints 3 dims) dims
-    , capillaryLayer = M.matrixInit dims 0
-    , mask = M.matrixInit dims False
-    }
-
-initialInput =
-  Input {mouseDown = False, mousePosLast = (0, 0), mousePos = (0, 0)}
+-- import Simulation.State
+canvas :: Canvas
+canvas = Canvas {canvasScreen = (900, 900), canvasN = 50}
+dims :: (Int, Int)
+dims = dimsFromN (canvasN canvas)
+simulationState = initialState
 
 colorVertex :: Color3 GLfloat -> Vertex2 GLfloat -> IO ()
 colorVertex c v = do
@@ -104,11 +56,11 @@ getQuadDens p@(x, y) m =
 drawDensity :: M.Matrix Double -> IO ()
 drawDensity m = do
   color (Color3 (1 :: GLfloat) 0 1)
-  let h = 2.0 / fromIntegral n
+  let h = 2.0 / fromIntegral (canvasN canvas)
   let f i = (fromIntegral i :: GLfloat) * h - 1.0 - h
   renderPrimitive G.Quads
     $ forM_
-        [(x, y) | x <- [1 .. n], y <- [1 .. n]]
+        [(x, y) | x <- [1 .. canvasN canvas], y <- [1 .. canvasN canvas]]
         (\(i, j) -> do
            let [d00, d10, d11, d01] = getQuadDens (i, j) m
            let c x = 1 - clamp (0, 1) x
@@ -122,135 +74,59 @@ displayFunc :: IORef State -> DisplayCallback
 displayFunc s = do
   clear [ColorBuffer]
   state <- readIORef s
-  drawDensity $ surfaceLayer state
+  drawDensity $ surfaceLayerDensity state
   -- print $ waterDensity state
   swapBuffers
-
-pos :: Int -> (Int, Int) -> (Int, Int) -> (Int, Int)
-pos n (width, height) (x, y) =
-  (truncate (dx / dw * dn) + 1, n - truncate (dy / dh * dn))
-  where
-    dx = fromIntegral x :: Double
-    dy = fromIntegral y :: Double
-    dn = fromIntegral n :: Double
-    dw = fromIntegral width :: Double
-    dh = fromIntegral height :: Double
 
 neighbours :: (Num a, Num b) => (a, b) -> [(a, b)]
 neighbours (x, y) = [(x + 1, y), (x - 1, y), (x, y - 1), (x, y + 1)]
 
-line :: (Int, Int) -> (Int, Int) -> [(Int, Int)]
-line pa@(xa, ya) pb@(xb, yb) = map maySwitch . unfoldr go $ (x1, y1, 0)
-  where
-    steep = abs (yb - ya) > abs (xb - xa)
-    maySwitch =
-      if steep
-        then (\(x, y) -> (y, x))
-        else id
-    [(x1, y1), (x2, y2)] = sort [maySwitch pa, maySwitch pb]
-    deltax = x2 - x1
-    deltay = abs (y2 - y1)
-    ystep =
-      if y1 < y2
-        then 1
-        else -1
-    go (xTemp, yTemp, error)
-      | xTemp > x2 = Nothing
-      | otherwise = Just ((xTemp, yTemp), (xTemp + 1, newY, newError))
-      where
-        tempError = error + deltay
-        (newY, newError) =
-          if (2 * tempError) >= deltax
-            then (yTemp + ystep, tempError - deltax)
-            else (yTemp, tempError)
-
-------- IDLE MOVEMENT!
-updateStateFromUI :: IORef Input -> IO (M.Matrix Double)
-updateStateFromUI iref = do
-  input <- readIORef iref
-  (_, Size width height) <- G.get viewport
-  let mouseposprev = mousePosLast input
-  let mousepos = mousePos input
-  let scaledMousePosPrev =
-        pos n (fromIntegral width, fromIntegral height) mouseposprev
-  let scaledMousePos = pos n (fromIntegral width, fromIntegral height) mousepos
-  -- print (scaledMousePos, scaledMousePosPrev)
-  return
-    $ M.matrixGenerate
-        (n + 2, n + 2)
-        (\x ->
-           if x `elem` line scaledMousePosPrev scaledMousePos
-             then 1
-             else 0)
-
-zeroGrid :: M.Matrix Double
-zeroGrid = M.matrixInit (n + 2, n + 2) 0
-
-idleFunc :: IORef State -> IORef Input -> IdleCallback
+idleFunc :: IORef State -> IORef MouseInput -> IdleCallback
 idleFunc sref iref = do
   input <- readIORef iref
-  state <- readIORef sref
-  let vfield = velocityField state
-  let water = waterDensity state
-  let surface = surfaceLayer state
-  let hmap = heightMap state
-  let capillary = capillaryLayer state
-  let stroke = mask state
-  -- If necessary, update the prev values
-  src <-
-    if mouseDown input
-      then updateStateFromUI iref
-      else return zeroGrid
-  let vstep = velStep n vfield (zeroGrid, zeroGrid) visc dt
-  let (vField, dField) = updateWater water src hmap vstep stroke dt n
-  let (newPigmentLayer, newSurfaceLayer) =
-        calculateSurfaceLayer dField surface dField hmap dt
-  let (newCapillary, newShallowFluid, newMask) = simulateCapillaryFlow capillary dField hmap n diff dt
-  writeIORef
-    sref
-    state
-      { velocityField = vField
-      , waterDensity = dField
-      , pigmentField = newPigmentLayer
-      , surfaceLayer = newSurfaceLayer
-      , capillaryLayer = newCapillary
-      , mask = newMask
-      }
+  let src = getSourceFromMouseInput input dims
+  modifyIORef sref (nextState src)
   postRedisplay Nothing
 
 ------- KEYBOARD INPUT AND HANDLING
-setMouseData :: KeyState -> (Int, Int) -> Input
-setMouseData km coords@(x, y) =
+
+setMouseData :: KeyState -> (Int, Int) -> (Int, Int) -> MouseInput
+setMouseData km coords@(x, y) viewport =
   case km of
-    Down -> Input True coords coords
-    Up   -> Input False coords coords
+    Down -> getDuplicateMouseInput True (coords, canvas, viewport)
+    Up   -> getDuplicateMouseInput False (coords, canvas, viewport)
 
-setMouseMovedData :: (Int, Int) -> Input -> Input
-setMouseMovedData currPos ilast =
-  ilast {mousePosLast = mousePos ilast, mousePos = currPos}
+setMouseMovedData :: (Int, Int) -> (Int, Int) -> MouseInput -> MouseInput
+setMouseMovedData currPos viewport = getMouseInput True (currPos, canvas, viewport)
 
-keyMouseFunc :: IORef Input -> IORef State -> KeyboardMouseCallback
+keyMouseFunc :: IORef MouseInput -> IORef State -> KeyboardMouseCallback
 keyMouseFunc _ _ (Char 'q') _ _ _ = exitSuccess
-keyMouseFunc _ s (Char 'c') _ _ _ = writeIORef s initialState
-keyMouseFunc i _ _ km _ (Position x y) =
-  writeIORef i $ setMouseData km (fromIntegral x :: Int, fromIntegral y :: Int)
+keyMouseFunc _ s (Char 'c') _ _ _ = writeIORef s (initialState dims)
+keyMouseFunc i _ _ km _ (Position x y) = do
+  (_, Size width height) <- G.get viewport
+  writeIORef i $ setMouseData km (fromIntegral x :: Int, fromIntegral y :: Int) (fromIntegral width, fromIntegral height)
 
-mouseMotionFunc :: IORef Input -> MotionCallback
-mouseMotionFunc i (Position x y) =
-  modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y)
+mouseMotionFunc :: IORef MouseInput -> MotionCallback
+mouseMotionFunc i (Position x y) = do
+  (_, Size width height) <- G.get viewport
+  input <- readIORef i
+  -- modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y) (fromIntegral width, fromIntegral height)
+  modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y) (fromIntegral width, fromIntegral height)
 
 -- This just starts up the event loop
 main :: IO ()
 main = do
   _ <- getArgsAndInitialize
   initialDisplayMode $= [DoubleBuffered, RGBAMode]
-  initialWindowSize $= Size screenWidth screenHeight
+  let (screenWidth, screenHeight) = canvasScreen canvas
+  initialWindowSize
+    $= Size (fromIntegral screenWidth) (fromIntegral screenHeight)
   initialWindowPosition $= Position 0 0
   _ <- G.createWindow "flowpaint"
-  state <- newIORef initialState
-  input <- newIORef initialInput
-  displayCallback $= displayFunc state
-  keyboardMouseCallback $= Just (keyMouseFunc input state)
-  idleCallback $= Just (idleFunc state input)
+  stateRef <- newIORef (initialState dims)
+  input <- newIORef initialMouse
+  displayCallback $= displayFunc stateRef
+  keyboardMouseCallback $= Just (keyMouseFunc input stateRef)
+  idleCallback $= Just (idleFunc stateRef input)
   motionCallback $= Just (mouseMotionFunc input)
   mainLoop

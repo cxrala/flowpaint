@@ -1,5 +1,5 @@
 module Simulation.State
-  ( State
+  ( State(..)
   , nextState
   , initialState
   , dimsFromN
