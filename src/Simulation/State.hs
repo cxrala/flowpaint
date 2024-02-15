@@ -56,7 +56,7 @@ initialState dims =
 
 nextState :: Maybe Source -> State -> State
 nextState Nothing prevState = step (zeroMatrix (matrixDims $ waterDensity prevState)) prevState
-nextState (Just src) prevState = step src prevState 
+nextState (Just src) prevState = step src prevState
 
 step :: Source -> State -> State
 step src prevState =

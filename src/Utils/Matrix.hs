@@ -9,7 +9,6 @@ module Utils.Matrix
   , matrixImap
   , matrixImapCheckbounds
   , matrixNeighbours
-  , matrixUnsafeUpd
   , matrixSetBnd
   , matrixGenerate
   , matrixEq
@@ -90,13 +89,6 @@ matrixImapCheckbounds bounds f m =
 matrixNeighbours :: V.Unbox a => (Int, Int) -> Matrix a -> [a]
 matrixNeighbours (i, j) m =
   map (`matrixGet` m) [(i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)]
-
-matrixUnsafeUpd :: V.Unbox a => Matrix a -> [((Int, Int), a)] -> Matrix a
-matrixUnsafeUpd m ls =
-  m
-    { vector =
-        V.unsafeUpd (vector m) (map (\(dims, a) -> (flattenDims dims m, a)) ls)
-    }
 
 -- runs op on a vector, giving you a new vector. this is safe
 inPlace ::

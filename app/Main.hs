@@ -4,43 +4,36 @@ module Main
   ( main
   ) where
 
-import           Control.Monad
-import           Data.Word                  (Word32)
-import           Graphics.UI.GLUT           as G
-import           Linear                     (Additive (zero), V4 (..))
+import           Control.Monad       (forM_)
+import           Data.Word           (Word32)
+import           Graphics.UI.GLUT    as G
+import           Linear              (Additive (zero), V4 (..))
 
-import           Data.IORef
+import           Data.IORef          (IORef, modifyIORef, newIORef, readIORef,
+                                      writeIORef)
 
-import           SDL                        (KeyModifier)
+import           SDL                 (KeyModifier)
 
-import           Data.Int                   (Int32)
-import           Data.List                  (sort, unfoldr)
+import           Data.Int            (Int32)
+import           System.Exit         (ExitCode (ExitSuccess), exitSuccess,
+                                      exitWith)
+import qualified Utils.Matrix        as M
+import           Utils.Matrix        (matrixNeighbours)
 
--- import           SDL
-import           Simulation.VelocityField   (densStep, velStep)
-import           Simulation.WaterQuantities (updateWater)
-
-import           Data.Ord                   (clamp)
-import           Data.Tuple
-import           Simulation.Capillary       (genPoints, getWorleyNoise,
-                                             simulateCapillaryFlow)
-import           Simulation.SurfaceLayer    (calculateSurfaceLayer)
-import           System.Exit                (ExitCode (ExitSuccess),
-                                             exitSuccess, exitWith)
-import qualified Utils.Matrix               as M
-import           Utils.Matrix               (matrixNeighbours)
-
-import           Interface.Canvas
-import           Interface.UserInput
-import Simulation.State
-import Simulation.Source
+import           Data.Ord            (clamp)
+import           Interface.Canvas    (Canvas (..), dimsFromN)
+import           Interface.UserInput (MouseInput, getDuplicateMouseInput,
+                                      getMouseInput, initialMouse)
+import           Simulation.Source
+import           Simulation.State    (State (surfaceLayerDensity), initialState,
+                                      nextState)
 
 -- import Simulation.State
 canvas :: Canvas
 canvas = Canvas {canvasScreen = (900, 900), canvasN = 50}
+
 dims :: (Int, Int)
 dims = dimsFromN (canvasN canvas)
-simulationState = initialState
 
 colorVertex :: Color3 GLfloat -> Vertex2 GLfloat -> IO ()
 colorVertex c v = do
@@ -78,9 +71,6 @@ displayFunc s = do
   -- print $ waterDensity state
   swapBuffers
 
-neighbours :: (Num a, Num b) => (a, b) -> [(a, b)]
-neighbours (x, y) = [(x + 1, y), (x - 1, y), (x, y - 1), (x, y + 1)]
-
 idleFunc :: IORef State -> IORef MouseInput -> IdleCallback
 idleFunc sref iref = do
   input <- readIORef iref
@@ -89,7 +79,6 @@ idleFunc sref iref = do
   postRedisplay Nothing
 
 ------- KEYBOARD INPUT AND HANDLING
-
 setMouseData :: KeyState -> (Int, Int) -> (Int, Int) -> MouseInput
 setMouseData km coords@(x, y) viewport =
   case km of
@@ -97,21 +86,28 @@ setMouseData km coords@(x, y) viewport =
     Up   -> getDuplicateMouseInput False (coords, canvas, viewport)
 
 setMouseMovedData :: (Int, Int) -> (Int, Int) -> MouseInput -> MouseInput
-setMouseMovedData currPos viewport = getMouseInput True (currPos, canvas, viewport)
+setMouseMovedData currPos viewport =
+  getMouseInput True (currPos, canvas, viewport)
 
 keyMouseFunc :: IORef MouseInput -> IORef State -> KeyboardMouseCallback
 keyMouseFunc _ _ (Char 'q') _ _ _ = exitSuccess
 keyMouseFunc _ s (Char 'c') _ _ _ = writeIORef s (initialState dims)
 keyMouseFunc i _ _ km _ (Position x y) = do
   (_, Size width height) <- G.get viewport
-  writeIORef i $ setMouseData km (fromIntegral x :: Int, fromIntegral y :: Int) (fromIntegral width, fromIntegral height)
+  writeIORef i
+    $ setMouseData
+        km
+        (fromIntegral x :: Int, fromIntegral y :: Int)
+        (fromIntegral width, fromIntegral height)
 
 mouseMotionFunc :: IORef MouseInput -> MotionCallback
 mouseMotionFunc i (Position x y) = do
   (_, Size width height) <- G.get viewport
   input <- readIORef i
-  -- modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y) (fromIntegral width, fromIntegral height)
-  modifyIORef i $ setMouseMovedData (fromIntegral x, fromIntegral y) (fromIntegral width, fromIntegral height)
+  modifyIORef i
+    $ setMouseMovedData
+        (fromIntegral x, fromIntegral y)
+        (fromIntegral width, fromIntegral height)
 
 -- This just starts up the event loop
 main :: IO ()

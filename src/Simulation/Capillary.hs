@@ -23,21 +23,7 @@ numP = 1
 n = 0
 threshhold = 0.3
 evaporation = 0.005
-clampPoints = 9
-
 alpha = 10
-
-tablulateProbabilities :: Int -> Double -> Vector Double
-tablulateProbabilities m lam =
-  generate
-    clampPoints
-    (\x -> (lam ^^ (-m) * exp lam * fromIntegral (product [1 .. m])) ^^ (-1))
-
-getNoise :: Int -> (Int, Int) -> Matrix Double
-getNoise seed dims@(x, y) =
-  let noise n = take n . unfoldr (Just . uniformR (0, 1))
-      pureGen = mkStdGen seed
-   in matrixFromList (noise (x * y) pureGen) dims
 
 genPoints :: Int -> (Int, Int) -> [(Double, Double)]
 genPoints seed dims@(x, y) =

@@ -16,9 +16,6 @@ wh = 0.06
 wi = 1 - wh
 
 epsEvaporation = 0.003
-
-maxCapacity = 1
-
 diff = 0.0001
 
 -- This updated velocity field models the tendency for water to "fill unused spaces" -- leading to the dark edge effect. See 4.1, water diffusion.
@@ -112,7 +109,7 @@ updateWater waterQuantities source heightMap v@(vx, vy) mask dt n =
   let vNew = addVfieldHeightDifferences v waterQuantities dt n
       vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
       (wNew, maskNew) = addSource waterQuantities source mask dt
-      diffused = diffuse n 0 source wNew diff dt
+      diffused = diffuseWater n 0 source wNew diff dt
       advected = advectWater n 0 diffused (vxNew, vyNew) dt
       clamped =
         elementwiseCombine

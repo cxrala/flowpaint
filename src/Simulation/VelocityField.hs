@@ -1,6 +1,5 @@
 module Simulation.VelocityField
-  ( densStep
-  , velStep
+  ( velStep
   , diffuse
   , advect
   ) where
@@ -38,13 +37,7 @@ diffuse n b x x0 diff dt =
                  y)
    in iterate diffused x !! 5
 
-advect ::
-     Int
-  -> Int
-  -> ScalarField
-  -> VelocityField
-  -> Double
-  -> ScalarField
+advect :: Int -> Int -> ScalarField -> VelocityField -> Double -> ScalarField
 advect n b d0 (u, v) dt =
   let dt0 = dt * fromIntegral n
       d =
@@ -125,34 +118,28 @@ project n u v =
 
 -- x0 is initially the source vector
 -- x is the original density vector
-densStep ::
-     Int
-  -> ScalarField
-  -> ScalarField
-  -> VelocityField
-  -> Double
-  -> Double
-  -> ScalarField
-densStep n dPrev source (u, v) diff dt =
-  let padN = n + 2
-   in assert
-        ((padN, padN) == matrixDims dPrev
-           && (padN, padN) == matrixDims source
-           && (padN, padN) == matrixDims u
-           && (padN, padN) == matrixDims v)
-        (let densAfterSource = addSource dPrev source dt
-             diffused = diffuse n 0 source densAfterSource diff dt
-             in advect n 0 diffused (u, v) dt)
-
+-- densStep ::
+--      Int
+--   -> ScalarField
+--   -> ScalarField
+--   -> VelocityField
+--   -> Double
+--   -> Double
+--   -> ScalarField
+-- densStep n dPrev source (u, v) diff dt =
+--   let padN = n + 2
+--    in assert
+--         ((padN, padN) == matrixDims dPrev
+--            && (padN, padN) == matrixDims source
+--            && (padN, padN) == matrixDims u
+--            && (padN, padN) == matrixDims v)
+--         (let densAfterSource = addSource dPrev source dt
+--              diffused = diffuse n 0 source densAfterSource diff dt
+--              in advect n 0 diffused (u, v) dt)
 -- x0 is initially the source vector
 -- x is the original density vector
 velStep ::
-     Int
-  -> VelocityField
-  -> VelocityField
-  -> Double
-  -> Double
-  -> VelocityField
+     Int -> VelocityField -> VelocityField -> Double -> Double -> VelocityField
 velStep n (u, v) (u0, v0) visc dt =
   let padN = n + 2
    in assert
