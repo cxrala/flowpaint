@@ -13,6 +13,7 @@ import           Utils.Fields
 import           Utils.Matrix
 import Simulation.Source (Source)
 import Interface.Canvas
+import Data.Maybe (fromMaybe)
 
 data State = State
   { velocityField         :: VelocityField
@@ -55,8 +56,8 @@ initialState dims =
         }
 
 nextState :: Maybe Source -> State -> State
-nextState Nothing prevState = step (zeroMatrix (matrixDims $ waterDensity prevState)) prevState
-nextState (Just src) prevState = step src prevState
+nextState src prevState = step (fromMaybe concreteZeroMatrix src) prevState
+  where concreteZeroMatrix = zeroMatrix . matrixDims $ waterDensity prevState
 
 step :: Source -> State -> State
 step src prevState =

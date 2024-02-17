@@ -30,7 +30,7 @@ diffuse n b x x0 diff dt =
         matrixSetBnd n b
           . (\y ->
                matrixImapCheckbounds
-                 (1, 1, n, n)
+                 ((1, 1), (n, n))
                  (\idxs dprev ->
                     (matrixGet idxs x0 + a * sum (matrixNeighbours idxs y))
                       / (1 + 4 * a))
@@ -42,7 +42,7 @@ advect n b d0 (u, v) dt =
   let dt0 = dt * fromIntegral n
       d =
         matrixImapCheckbounds
-          (1, 1, n, n)
+          ((1, 1), (n, n))
           (\idxs@(idx, idy) val ->
              let lb = 0.5
                  ub = fromIntegral n + 0.5
@@ -70,7 +70,7 @@ project n u v =
       div =
         matrixSetBnd n 0
           $ matrixImapCheckbounds
-              (1, 1, n, n)
+              ((1, 1), (n, n))
               (\(i, j) a ->
                  -0.5
                    * h
@@ -86,7 +86,7 @@ project n u v =
               matrixSetBnd n 0
                 . (\y ->
                      matrixImapCheckbounds
-                       (1, 1, n, n)
+                       ((1, 1), (n, n))
                        (\idxs dprev ->
                           (matrixGet idxs div + sum (matrixNeighbours idxs y))
                             / 4)
@@ -95,7 +95,7 @@ project n u v =
       newU =
         matrixSetBnd n 1
           $ matrixImapCheckbounds
-              (1, 1, n, n)
+              ((1, 1), (n, n))
               (\(i, j) uprev ->
                  uprev
                    - 0.5
@@ -106,7 +106,7 @@ project n u v =
       newV =
         matrixSetBnd n 2
           $ matrixImapCheckbounds
-              (1, 1, n, n)
+              ((1, 1), (n, n))
               (\(i, j) vprev ->
                  vprev
                    - 0.5

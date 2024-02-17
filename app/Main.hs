@@ -112,13 +112,13 @@ mouseMotionFunc i (Position x y) = do
 -- This just starts up the event loop
 main :: IO ()
 main = do
-  _ <- getArgsAndInitialize
+  getArgsAndInitialize
   initialDisplayMode $= [DoubleBuffered, RGBAMode]
   let (screenWidth, screenHeight) = canvasScreen canvas
   initialWindowSize
     $= Size (fromIntegral screenWidth) (fromIntegral screenHeight)
   initialWindowPosition $= Position 0 0
-  _ <- G.createWindow "flowpaint"
+  G.createWindow "flowpaint"
   stateRef <- newIORef (initialState dims)
   input <- newIORef initialMouse
   displayCallback $= displayFunc stateRef

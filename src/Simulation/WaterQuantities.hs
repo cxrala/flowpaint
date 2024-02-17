@@ -33,7 +33,7 @@ addVfieldHeightDifferences v@(vx, vy) w dt n =
             | otherwise = ((x, y - 1), (x, y + 1))
           updateVelocityField isX =
             matrixImapCheckbounds
-              (1, 1, n, n)
+              ((1, 1), (n, n))
               (\(x, y) _ ->
                  let (n1, n2) = adjacent isX (x, y)
                   in coef * (matrixGet n1 waterField - matrixGet n2 waterField))

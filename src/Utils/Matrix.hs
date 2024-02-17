@@ -22,6 +22,7 @@ import           Data.Vector.Unboxed ((!))
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Vector.Unboxed.Mutable as MV
 import           Control.Exception (assert)
+import Data.Ix (index, inRange, range)
 
 data Matrix a = Matrix
   { vector :: !(V.Vector a)
@@ -32,14 +33,17 @@ data Matrix a = Matrix
 mWidth :: Matrix a -> Int
 mWidth = snd . dims
 
+mBounds :: Matrix a -> ((Int, Int), (Int, Int))
+mBounds m = let (x, y) = dims m in ((0, 0), (pred y, pred x))
+
 flattenDims :: (Int, Int) -> Matrix a -> Int
-flattenDims (x, y) m = x + mWidth m * y
+flattenDims pos = (`index` swap pos) . mBounds
 
 raiseDimsWidth :: Int -> Int -> (Int, Int)
-raiseDimsWidth i j = swap $ quotRem i j
+raiseDimsWidth index width = swap $ quotRem index width
 
 raiseDims :: Int -> Matrix a -> (Int, Int)
-raiseDims i m = raiseDimsWidth i (mWidth m)
+raiseDims i = raiseDimsWidth i . mWidth
 
 -- exposed
 matrixDims :: Matrix a -> (Int, Int)
@@ -65,25 +69,18 @@ matrixMap :: (V.Unbox a, V.Unbox b) => (a -> b) -> Matrix a -> Matrix b
 matrixMap f m = m {vector = V.map f (vector m)}
 
 matrixImap :: (V.Unbox a, V.Unbox b) => ((Int, Int) -> a -> b) -> Matrix a -> Matrix b
-matrixImap f m = m {vector = V.imap (\i -> f (raiseDims i m)) (vector m)}
+matrixImap f m = m {vector = V.imap (f . (`raiseDims` m)) $ vector m}
 
 -- INCLUSIVE within bounds check.
 matrixImapCheckbounds ::
-    V.Unbox a => (Int, Int, Int, Int) -> ((Int, Int) -> a -> a) -> Matrix a -> Matrix a
-matrixImapCheckbounds bounds f m =
-  m
-    { vector =
-        V.imap
-          (\i a ->
-             let point = raiseDims i m
-              in if withinBounds point bounds
-                   then f point a
-                   else a)
-          (vector m)
-    }
-  where
-    withinBounds (x, y) (lbx, lby, ubx, uby) =
-      x >= lbx && y >= lby && x <= ubx && y <= uby
+    V.Unbox a => ((Int, Int), (Int, Int)) -> ((Int, Int) -> a -> a) -> Matrix a -> Matrix a
+matrixImapCheckbounds bounds f m = m {vector = inPlace mapPoints $ vector m}
+  where mapPoint mv point = MV.modify mv (f point) $ flattenDims point m
+        mapPoints mv = forM_ (range bounds) (mapPoint mv)
+  -- matrixImap (\point a ->
+  --               if inRange bounds point
+  --                 then f point a
+  --                 else a)
 
 -- left, right, up, down
 matrixNeighbours :: V.Unbox a => (Int, Int) -> Matrix a -> [a]
@@ -100,7 +97,7 @@ inPlace op vec =
   runST $ do
     mv <- V.thaw vec
     op mv
-    V.freeze mv
+    V.unsafeFreeze mv
 
 -- TODO: this needs to be moved out of here...
 matrixSetBnd :: Int -> Int -> Matrix Double -> Matrix Double
