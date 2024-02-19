@@ -39,6 +39,9 @@ library
     , vector
     , hashable
     , random
+    , Yampa
+    , sdl2
+    , linear
   hs-source-dirs:  src
 
 executable flowpaint
