@@ -1,10 +1,23 @@
 #version 410 core
-precision mediump float;
 
-uniform vec2 u_viewPort;
-in vec3 fragment_color;
-out vec4 fColor;
+// Uniform for accessing density texture
+uniform sampler1D densityTex;
+
+out vec4 fragColor;
 
 void main() {
-    fColor = vec4(fragment_color, 1.0f);
+    // Get texture coordinate based on normalized pixel position
+    float texCoord = gl_FragCoord.x / float(gl_viewport[2]);
+
+    // Sample density value from texture
+    float density = texture(densityTex, texCoord).r;
+
+    // Normalize density to the range [0, 1]
+    density = clamp(density, 0.0, 1.0);
+
+    // Map density to color using a linear interpolation between minColor and maxColor
+    vec3 color = mix(0, 1, density); // adjust colours if needed (min 0, max 1)
+
+    // Set fragment color with some alpha transparency
+    fragColor = vec4(color, 0.8);
 }

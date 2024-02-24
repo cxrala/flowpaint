@@ -1,11 +1,12 @@
 module Interaction.Input
   ( WinInput,
+  parseWinInput,
   AppInput(..)
   ) where
 
 -- taken mostly from the SDL/Yampa Mandelbrot tutorial.
 
-import           FRP.Yampa
+import FRP.Yampa ( SF, Event, accumHoldBy )
 import qualified SDL
 import SDL.Vect (Point(P))
 import           Linear (V2(..))
@@ -49,8 +50,8 @@ nextAppInput appInput (SDL.MouseButtonEvent ev) =
         newAppInput = appInput {inpMousePos = mousePos}
         in case (button, motion) of
             (SDL.ButtonLeft, SDL.Released) -> newAppInput {inpMouseLeft = Nothing}
-            (SDL.ButtonRight, SDL.Released) -> newAppInput {inpMouseRight = Just mousePos}
-            (SDL.ButtonLeft, SDL.Pressed) -> newAppInput {inpMouseLeft = Nothing}
+            (SDL.ButtonRight, SDL.Released) -> newAppInput {inpMouseRight = Nothing}
+            (SDL.ButtonLeft, SDL.Pressed) -> newAppInput {inpMouseLeft = Just mousePos}
             (SDL.ButtonRight, SDL.Pressed) -> newAppInput {inpMouseRight = Just mousePos}
 nextAppInput appInput (SDL.MouseMotionEvent ev) = 
     appInput {inpMousePos = extractMousePos (SDL.mouseMotionEventPos ev)}
@@ -59,3 +60,4 @@ nextAppInput appInput (SDL.KeyboardEvent ev) =
         SDL.ScancodeEscape -> appInput { inpQuit = True }
         _ -> appInput -- could put more if want to.
     where scancode = SDL.keysymScancode . SDL.keyboardEventKeysym
+nextAppInput appInput _ = appInput

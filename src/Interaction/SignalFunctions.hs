@@ -8,16 +8,15 @@ module Interaction.SignalFunctions
 import           FRP.Yampa
 import           GHC.Int   (Int32)
 import qualified SDL
+import Interaction.Input
+import Data.Functor
 
 type WinOutput = String
 
-sf :: SF WinInput WinOutput
+
+sf :: SF WinInput (Maybe String)
 sf = parseWinInput >>> toCanvas
 
--- sf = proc (i, j) -> do
---     inew <- arr fromIntegral -< i
---     jnew <- arr fromIntegral -< j
---     x <- arr show -< (inew, jnew)
---     returnA -< x
-parseWinInput :: SF WinInput AppInput
-toCanvas :: SF AppInput String -- change to canvas
+toCanvas :: SF AppInput (Maybe String) -- change to canvas
+toCanvas = proc i -> do
+  returnA -< inpMouseLeft i <&> show

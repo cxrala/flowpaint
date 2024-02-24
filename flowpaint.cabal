@@ -33,6 +33,11 @@ library
     Utils.Fields
     Interface.Canvas
     Interface.UserInput
+    Interaction.Input
+    Interaction.Render
+    Interaction.Sense
+    Interaction.SignalFunctions
+    Rendering.LoadShaders
 
   build-depends:
     , base    ^>=4.17.2.0
@@ -42,6 +47,8 @@ library
     , Yampa
     , sdl2
     , linear
+    , bytestring
+    , OpenGL
   hs-source-dirs:  src
 
 executable flowpaint

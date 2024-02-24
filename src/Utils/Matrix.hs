@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Utils.Matrix
-  ( Matrix
+  ( Matrix(..)
   , matrixDims
   , matrixInit
   , matrixGet
