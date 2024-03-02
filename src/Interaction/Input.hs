@@ -10,13 +10,13 @@ import FRP.Yampa ( SF, Event, accumHoldBy )
 import qualified SDL
 import SDL.Vect (Point(P))
 import           Linear (V2(..))
+import Interface.UserInput
 
 type WinInput = Event SDL.EventPayload -- SDL events
 
 -- the AppInput: i.e. the input we actually care about
 data AppInput = AppInput
-  { inpMousePos    :: (Double, Double) -- ^ Current mouse position
-  , inpMouseLeft   :: Maybe (Double, Double) -- ^ Down button currently down
+  { inpMouseLeft   :: Maybe (Double, Double) -- ^ Down button currently down
   , inpMouseRight  :: Maybe (Double, Double) -- ^ Right button currently down
   , inpQuit        :: Bool -- ^ SDL's QuitEvent
   , inpKeyPressed  :: Maybe SDL.Scancode
@@ -26,8 +26,7 @@ data AppInput = AppInput
 initAppInput :: AppInput
 initAppInput =
   AppInput
-    { inpMousePos = (0, 0)
-    , inpMouseLeft = Nothing
+    { inpMouseLeft = Nothing
     , inpMouseRight = Nothing
     , inpQuit = False
     , inpKeyPressed = Nothing
@@ -47,14 +46,15 @@ nextAppInput appInput (SDL.MouseButtonEvent ev) =
     let mousePos = extractMousePos (SDL.mouseButtonEventPos ev)
         button = SDL.mouseButtonEventButton ev
         motion = SDL.mouseButtonEventMotion ev
-        newAppInput = appInput {inpMousePos = mousePos}
         in case (button, motion) of
-            (SDL.ButtonLeft, SDL.Released) -> newAppInput {inpMouseLeft = Nothing}
-            (SDL.ButtonRight, SDL.Released) -> newAppInput {inpMouseRight = Nothing}
-            (SDL.ButtonLeft, SDL.Pressed) -> newAppInput {inpMouseLeft = Just mousePos}
-            (SDL.ButtonRight, SDL.Pressed) -> newAppInput {inpMouseRight = Just mousePos}
-nextAppInput appInput (SDL.MouseMotionEvent ev) = 
-    appInput {inpMousePos = extractMousePos (SDL.mouseMotionEventPos ev)}
+            (SDL.ButtonLeft, SDL.Released) -> appInput {inpMouseLeft = Nothing}
+            (SDL.ButtonRight, SDL.Released) -> appInput {inpMouseRight = Nothing}
+            (SDL.ButtonLeft, SDL.Pressed) -> appInput {inpMouseLeft = Just mousePos}
+            (SDL.ButtonRight, SDL.Pressed) -> appInput {inpMouseRight = Just mousePos}
+nextAppInput appInput (SDL.MouseMotionEvent ev) =
+  case inpMouseLeft appInput of
+    Just _ -> appInput {inpMouseLeft = Just $ extractMousePos (SDL.mouseMotionEventPos ev)}
+    Nothing -> appInput 
 nextAppInput appInput (SDL.KeyboardEvent ev) =
     case scancode ev of
         SDL.ScancodeEscape -> appInput { inpQuit = True }

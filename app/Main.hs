@@ -11,12 +11,15 @@ import Interaction.Input
 import Interaction.Render
 import Interaction.Sense
 import Interaction.SignalFunctions
-
 import FRP.Yampa
 import Control.Concurrent (newMVar)
+import Simulation.State
+import Foreign.C (CInt)
+import Data.Text (Text)
+import SDL.Raw.Enum
+import SDL.Raw (glSetAttribute)
+import Interface.UserInput (initialMouse)
 
-canvas :: Canvas
-canvas = Canvas {canvasScreen = (900, 900), canvasN = 50}
 
 appLoop :: Renderer -> IO()
 appLoop renderer = do
@@ -28,7 +31,7 @@ appLoop renderer = do
             keysymKeycode (keyboardEventKeysym keyboardEvent) == KeycodeQ
           _ -> False
       qPressed = any eventIsQPress events
-  
+
   rendererDrawColor renderer $= V4 0 255 0 255
   drawPoint renderer (P (V2 3 3))
   present renderer
@@ -36,20 +39,86 @@ appLoop renderer = do
 
 
 
+openWindow :: Text -> (Int, Int) -> IO SDL.Window
+openWindow title (sizex, sizey) = do
+    -- SDL.setHintWithPriority DefaultPriority HintRenderDriver OpenGL
+    -- glSetAttribute SDL_GL_CONTEXT_MAJOR_VERSION 4
+    -- glSetAttribute SDL_GL_CONTEXT_MAJOR_VERSION 1
+    -- SDL.initializeAll
+    -- glSetAttribute SDL_GL_CONTEXT_PROFILE_MASK SDL_GL_CONTEXT_PROFILE_CORE
+
+    -- SDL.HintRenderScaleQuality $= SDL.ScaleLinear                    
+    -- do renderQuality <- SDL.get SDL.HintRenderScaleQuality          
+    --    when (renderQuality /= SDL.ScaleLinear) $                    
+    --      putStrLn "Warning: Linear texture filtering not enabled!"
+
+    -- -- let config = OpenGLConfig { glColorPrecision = V4 8 8 8 0
+    -- --                           , glDepthPrecision = 24
+    -- --                           , glStencilPrecision = 8
+    -- --                           , glMultisampleSamples = 4
+    -- --                           , glProfile = Core Normal 3 3
+    -- --                           }
+
+    -- window <- SDL.createWindow
+    --           title
+    --           SDL.defaultWindow
+    --           { SDL.windowInitialSize = V2 sizex sizey } 
+
+    -- SDL.showWindow window
+    -- _ <- SDL.glCreateContext window
+    SDL.initializeAll
+
+    SDL.HintRenderScaleQuality $= SDL.ScaleLinear
+    do renderQuality <- SDL.get SDL.HintRenderScaleQuality
+       when (renderQuality /= SDL.ScaleLinear) $
+         putStrLn "Warning: Linear texture filtering not enabled!"
+
+    let config = OpenGLConfig { glColorPrecision = V4 8 8 8 0
+                              , glDepthPrecision = 24
+                              , glStencilPrecision = 8
+                              , glMultisampleSamples = 4
+                              , glProfile = Core Normal 4 1
+                              }
+
+    window <- SDL.createWindow
+              title
+              SDL.defaultWindow
+              { SDL.windowInitialSize = V2 (fromIntegral sizex) (fromIntegral sizey)
+              , SDL.windowGraphicsContext = OpenGLContext config }
+
+    SDL.showWindow window
+    _ <- SDL.glCreateContext window
+
+    return window
+
+closeWindow :: SDL.Window -> IO ()
+closeWindow window = do
+    SDL.destroyWindow window
+    SDL.quit
+
 ------- animate -------
 
-initialise :: IO (Event EventPayload)
-initialise = return NoEvent
+initAnimation :: V2 CInt -> State -> IO (Event EventPayload, (Int, Int))
+initAnimation (V2 x y) state = return (NoEvent, (fromIntegral x, fromIntegral y))
 
 main :: IO ()
 main = do
-  initializeAll
-  window <- createWindow "flowpaint" defaultWindow
-  renderer <- createRenderer window (-1) defaultRenderer
+  let windowDims = (500, 500)
+  window <- openWindow "flowpaint" windowDims
+  renderer <- SDL.createRenderer window (-1) defaultRenderer
   initTime <- newMVar =<< SDL.time
-  let state = initialState
-  (program, texture) <- initResources state 
-  -- appLoop renderer
-  let actuate = renderState 
-  reactimate initialise (senseInput initTime) actuate sf
-  destroyWindow window
+  let varWinSize = windowSize window
+  currWinSize <- get varWinSize
+  let canvasSize = 50
+  
+  let initState = initialState canvasSize
+  let initMouse = initialMouse
+  
+  (program, texture) <- initResources initState renderer
+  let initialise = initAnimation currWinSize initState
+  let sense = senseInput initTime varWinSize
+  let actuate = renderState (texture, renderer)
+  let sf = signalFunction initState initMouse
+
+  reactimate initialise sense actuate sf
+  closeWindow window

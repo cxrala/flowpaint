@@ -12,7 +12,6 @@ import           Simulation.WaterQuantities
 import           Utils.Fields
 import           Utils.Matrix
 import Simulation.Source (Source)
-import Interface.Canvas
 import Data.Maybe (fromMaybe)
 
 data State = State
@@ -24,6 +23,8 @@ data State = State
   , heightMap             :: ScalarField
   , mask                  :: Matrix Bool
   , constants             :: PhysicsConstants
+  , canvasSize      :: Int
+  , canvasDims :: (Int, Int)
   }
 
 data PhysicsConstants = PhysicsConstants
@@ -35,9 +36,10 @@ data PhysicsConstants = PhysicsConstants
 
 zeroMatrix dims = matrixInit dims 0
 
-initialState :: (Int, Int) -> State
-initialState dims =
-  let intialMat = zeroMatrix dims
+initialState :: Int -> State
+initialState sizeN =
+  let dims = dimsFromN sizeN
+      intialMat = zeroMatrix dims
    in State
         { velocityField = (intialMat, intialMat)
         , waterDensity = intialMat
@@ -53,7 +55,12 @@ initialState dims =
               , physConstantVisc = 0.0003
               , physConstantSource = 1000.0
               }
+        , canvasSize = sizeN
+        , canvasDims = dims
         }
+
+dimsFromN :: Int -> (Int, Int)
+dimsFromN n = (n + 2, n + 2)
 
 nextState :: Maybe Source -> State -> State
 nextState src prevState = step (fromMaybe concreteZeroMatrix src) prevState
@@ -61,7 +68,7 @@ nextState src prevState = step (fromMaybe concreteZeroMatrix src) prevState
 
 step :: Source -> State -> State
 step src prevState =
-  let n = nFromDims (matrixDims $ waterDensity prevState)
+  let n = canvasSize prevState
       constantproperties = constants prevState
       dt = physConstantDt constantproperties
       diff = physConstantDiff constantproperties
@@ -82,4 +89,6 @@ step src prevState =
       , heightMap = heightMap prevState
       , mask = newMask
       , constants = constantproperties
+      , canvasSize = canvasSize prevState
+      , canvasDims = canvasDims prevState
       }
