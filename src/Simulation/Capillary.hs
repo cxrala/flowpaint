@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Simulation.Capillary
   ( genPoints
   , getWorleyNoise
@@ -21,7 +22,7 @@ import Data.Ord (clamp)
 numP = 1
 
 n = 0
-threshhold = 0.3
+threshhold = 0.1
 evaporation = 0.005
 alpha = 10
 
@@ -85,6 +86,6 @@ getMask = elementwiseCombine (\quantity height -> quantity / height > threshhold
 simulateCapillaryFlow :: ScalarField -> ScalarField -> ScalarField -> Int -> Double -> Double -> (ScalarField, ScalarField, Matrix Bool)
 simulateCapillaryFlow capillaryLayer shallowFluidLayer heightMap n diff dt =
   let (newCapillary, newShallowFluid) = absorbShallow capillaryLayer shallowFluidLayer heightMap dt
-      diffused = diffuseCapillary newCapillary heightMap n diff dt
+      !diffused = diffuseCapillary newCapillary heightMap n diff dt
       evaporated = evaporateCapillary diffused newShallowFluid dt in 
         (evaporated, newShallowFluid, getMask capillaryLayer heightMap)

@@ -27,8 +27,8 @@ renderState :: (SDL.Texture, SDL.Renderer) -> Bool -> State -> IO Bool
 renderState (texture, renderer) _ state = do
   SDL.rendererDrawColor renderer $= SDL.V4 255 255 255 255
   SDL.clear renderer
-  -- draw state texture renderer
-  -- SDL.copy renderer texture Nothing Nothing
+  draw state texture renderer
+  SDL.copy renderer texture Nothing Nothing
   SDL.present renderer
   return False
 

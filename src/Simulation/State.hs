@@ -16,16 +16,16 @@ import Simulation.Source (Source)
 import Data.Maybe (fromMaybe)
 
 data State = State
-  { velocityField         :: VelocityField
-  , waterDensity          :: ScalarField
-  , pigmentDensity        :: ScalarField
-  , surfaceLayerDensity   :: ScalarField
-  , capillaryLayerDensity :: ScalarField
-  , heightMap             :: ScalarField
-  , mask                  :: Matrix Bool
-  , constants             :: PhysicsConstants
-  , canvasSize      :: Int
-  , canvasDims :: (Int, Int)
+  { velocityField         :: !VelocityField
+  , waterDensity          :: !ScalarField
+  , pigmentDensity        :: !ScalarField
+  , surfaceLayerDensity   :: !ScalarField
+  , capillaryLayerDensity :: !ScalarField
+  , heightMap             :: !ScalarField
+  , mask                  :: !(Matrix Bool)
+  , constants             :: !PhysicsConstants
+  , canvasSize      :: !Int
+  , canvasDims :: !(Int, Int)
   }
 
 data PhysicsConstants = PhysicsConstants
@@ -64,11 +64,13 @@ dimsFromN :: Int -> (Int, Int)
 dimsFromN n = (n + 2, n + 2)
 
 nextState :: Maybe Source -> State -> State
-nextState src prevState = step (fromMaybe concreteZeroMatrix src) prevState
-  where concreteZeroMatrix = zeroMatrix . matrixDims $ waterDensity prevState
+nextState src prevState = step (fromMaybe (zeroMatrix $ canvasDims prevState) src) prevState
+
+-- nextState src prevState = step (fromMaybe concreteZeroMatrix src) prevState
+--   where concreteZeroMatrix = zeroMatrix . matrixDims $ waterDensity prevState
 
 step :: Source -> State -> State
-step src prevState =
+step !src !prevState =
   let n = canvasSize prevState
       constantproperties = constants prevState
       dt = physConstantDt constantproperties
@@ -76,20 +78,17 @@ step src prevState =
       visc = physConstantVisc constantproperties
       zeroGrid = zeroMatrix (matrixDims $ waterDensity prevState)
       vstep = velStep n (velocityField prevState) (zeroGrid, zeroGrid) visc dt
-      (vField, dField) = updateWater (waterDensity prevState) src (heightMap prevState) vstep (mask prevState) dt n
+      !(vField, dField) = updateWater (waterDensity prevState) src (heightMap prevState) vstep (mask prevState) dt n
       (newPigmentLayer, newSurfaceLayer) =
         calculateSurfaceLayer dField (surfaceLayerDensity prevState) dField (heightMap prevState) dt
       (newCapillary, newShallowFluid, newMask) =
         simulateCapillaryFlow (capillaryLayerDensity prevState) dField (heightMap prevState) n diff dt
-  in State
-      { velocityField = vField
-      , waterDensity = dField
+  in prevState { waterDensity = dField
+      , velocityField = vField
       , pigmentDensity = newPigmentLayer
       , surfaceLayerDensity = newSurfaceLayer
       , capillaryLayerDensity = newCapillary
       , heightMap = heightMap prevState
       , mask = newMask
       , constants = constantproperties
-      , canvasSize = canvasSize prevState
-      , canvasDims = canvasDims prevState
       }

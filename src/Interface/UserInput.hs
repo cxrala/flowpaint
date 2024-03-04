@@ -7,9 +7,9 @@ import Debug.Trace
 
 -- the "scaled" mouse input (scaled to the position of the canvas, not the screen)
 data MouseInput = MouseInput
-  { mouseDown    :: Bool
-  , mousePosLast :: (Int, Int)
-  , mousePos     :: (Int, Int)
+  { mouseDown    :: !Bool
+  , mousePosLast :: !(Int, Int)
+  , mousePos     :: !(Int, Int)
   } deriving (Show)
 
 type WindowDims = (Int, Int)

@@ -1,4 +1,5 @@
 -- in reference to https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dcf15363bc964044a554fc5f4af8e32101c083fe
+{-# LANGUAGE BangPatterns #-}
 module Simulation.WaterQuantities
   ( updateWater
   ) where
@@ -106,17 +107,17 @@ updateWater ::
   -> Int
   -> (VelocityField, ScalarField)
 updateWater waterQuantities source heightMap v@(vx, vy) mask dt n =
-  let vNew = addVfieldHeightDifferences v waterQuantities dt n
-      vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
-      (wNew, maskNew) = addSource waterQuantities source mask dt
-      diffused = diffuseWater n 0 source wNew diff dt
-      advected = advectWater n 0 diffused (vxNew, vyNew) dt
-      clamped =
+  let !vNew = addVfieldHeightDifferences v waterQuantities dt n
+      !vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
+      !(wNew, maskNew) = addSource waterQuantities source mask dt
+      !diffused = diffuseWater n 0 source wNew diff dt
+      !advected = advectWater n 0 diffused (vxNew, vyNew) dt
+      !clamped =
         elementwiseCombine
           (\height water -> clamp (0, height) water)
           heightMap
           advected
-      masked =
+      !masked =
         elementwiseCombine
           (\mval val ->
              if mval
@@ -124,6 +125,5 @@ updateWater waterQuantities source heightMap v@(vx, vy) mask dt n =
                else 0)
           maskNew
           clamped
-      -- clamped = matrixMap (clamp (0, 1)) advected
-      evaporated = evaporateWater masked dt
+      !evaporated = evaporateWater masked dt
    in (vNew, evaporated)

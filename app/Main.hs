@@ -66,8 +66,9 @@ openWindow title (sizex, sizey) = do
 
     return window
 
-closeWindow :: SDL.Window -> IO ()
-closeWindow window = do
+closeWindow :: SDL.Window -> SDL.Texture -> IO ()
+closeWindow window texture = do
+    SDL.destroyTexture texture
     SDL.destroyWindow window
     SDL.quit
 
@@ -96,4 +97,4 @@ main = do
   let sf = signalFunction initState initMouse
 
   reactimate initialise sense actuate sf
-  closeWindow window
+  closeWindow window texture
