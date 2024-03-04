@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Simulation.VelocityField
   ( velStep
   , diffuse
@@ -10,6 +11,7 @@ import           Data.Vector       ((!))
 import qualified Data.Vector       as V
 import           Utils.Fields
 import           Utils.Matrix
+import Data.List (iterate')
 
 -- for now, implemented almost identically to
 -- http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf
@@ -147,11 +149,11 @@ velStep n (u, v) (u0, v0) visc dt =
            && (padN, padN) == matrixDims v
            && (padN, padN) == matrixDims u0
            && (padN, padN) == matrixDims v0)
-        (let usrc = addSource u u0 dt
-             vsrc = addSource v v0 dt
-             diffusedu = diffuse n 1 u0 usrc visc dt
-             diffusedv = diffuse n 2 v0 vsrc visc dt
-             (uproj, vproj) = project n diffusedu diffusedv
-             advu = advect n 1 usrc (diffusedu, diffusedv) dt
-             advv = advect n 1 vsrc (diffusedu, diffusedv) dt
+        (let !usrc = addSource u u0 dt
+             !vsrc = addSource v v0 dt
+             !diffusedu = diffuse n 1 u0 usrc visc dt
+             !diffusedv = diffuse n 2 v0 vsrc visc dt
+             !(uproj, vproj) = project n diffusedu diffusedv
+             !advu = advect n 1 usrc (diffusedu, diffusedv) dt
+             !advv = advect n 1 vsrc (diffusedu, diffusedv) dt
           in project n advu advv)

@@ -4,125 +4,97 @@ module Main
   ( main
   ) where
 
-import           Control.Monad       (forM_)
-import           Data.Word           (Word32)
-import           Graphics.UI.GLUT    as G
-import           Linear              (Additive (zero), V4 (..))
+import           SDL hiding (Event)
+import Control.Monad
+import Graphics.UI.GLUT (Key(MouseButton))
+import Interaction.Input
+import Interaction.Render
+import Interaction.Sense
+import Interaction.SignalFunctions
+import FRP.Yampa
+import Control.Concurrent (newMVar)
+import Simulation.State
+import Foreign.C (CInt)
+import Data.Text (Text)
+import SDL.Raw.Enum
+import SDL.Raw (glSetAttribute)
+import Interface.UserInput (initialMouse)
 
-import           Data.IORef          (IORef, modifyIORef, newIORef, readIORef,
-                                      writeIORef)
 
-import           SDL                 (KeyModifier)
+appLoop :: Renderer -> IO()
+appLoop renderer = do
+  events <- pollEvents
+  let eventIsQPress event =
+        case eventPayload event of
+          KeyboardEvent keyboardEvent ->
+            keyboardEventKeyMotion keyboardEvent == Pressed &&
+            keysymKeycode (keyboardEventKeysym keyboardEvent) == KeycodeQ
+          _ -> False
+      qPressed = any eventIsQPress events
 
-import           Data.Int            (Int32)
-import           System.Exit         (ExitCode (ExitSuccess), exitSuccess,
-                                      exitWith)
-import qualified Utils.Matrix        as M
-import           Utils.Matrix        (matrixNeighbours)
+  rendererDrawColor renderer $= V4 0 255 0 255
+  drawPoint renderer (P (V2 3 3))
+  present renderer
+  unless qPressed (appLoop renderer)
 
-import           Data.Ord            (clamp)
-import           Interface.Canvas    (Canvas (..), dimsFromN)
-import           Interface.UserInput (MouseInput, getDuplicateMouseInput,
-                                      getMouseInput, initialMouse)
-import           Simulation.Source
-import           Simulation.State    (State (surfaceLayerDensity), initialState,
-                                      nextState)
 
--- import Simulation.State
-canvas :: Canvas
-canvas = Canvas {canvasScreen = (900, 900), canvasN = 50}
 
-dims :: (Int, Int)
-dims = dimsFromN (canvasN canvas)
+openWindow :: Text -> (Int, Int) -> IO SDL.Window
+openWindow title (sizex, sizey) = do
+    SDL.initializeAll
 
-colorVertex :: Color3 GLfloat -> Vertex2 GLfloat -> IO ()
-colorVertex c v = do
-  color c
-  vertex v
+    SDL.HintRenderScaleQuality $= SDL.ScaleLinear
+    do renderQuality <- SDL.get SDL.HintRenderScaleQuality
+       when (renderQuality /= SDL.ScaleLinear) $
+         putStrLn "Warning: Linear texture filtering not enabled!"
 
-getQuadDens :: (Int, Int) -> M.Matrix Double -> [GLfloat]
-getQuadDens p@(x, y) m =
-  map
-    (realToFrac . (`M.matrixGet` m))
-    [p, (x + 1, y), (x + 1, y + 1), (x, y + 1)]
+    let config = OpenGLConfig { glColorPrecision = V4 8 8 8 0
+                              , glDepthPrecision = 24
+                              , glStencilPrecision = 8
+                              , glMultisampleSamples = 4
+                              , glProfile = Core Normal 4 1
+                              }
 
-drawDensity :: M.Matrix Double -> IO ()
-drawDensity m = do
-  color (Color3 (1 :: GLfloat) 0 1)
-  let h = 2.0 / fromIntegral (canvasN canvas)
-  let f i = (fromIntegral i :: GLfloat) * h - 1.0 - h
-  renderPrimitive G.Quads
-    $ forM_
-        [(x, y) | x <- [1 .. canvasN canvas], y <- [1 .. canvasN canvas]]
-        (\(i, j) -> do
-           let [d00, d10, d11, d01] = getQuadDens (i, j) m
-           let c x = 1 - clamp (0, 1) x
-           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j)
-           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i + h) (f j)
-           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i + h) (f j + h)
-           colorVertex (Color3 (c d00) (c d00) 1) $ Vertex2 (f i) (f j + h))
-  flush
+    window <- SDL.createWindow
+              title
+              SDL.defaultWindow
+              { SDL.windowInitialSize = V2 (fromIntegral sizex) (fromIntegral sizey)
+              , SDL.windowGraphicsContext = OpenGLContext config }
 
-displayFunc :: IORef State -> DisplayCallback
-displayFunc s = do
-  clear [ColorBuffer]
-  state <- readIORef s
-  drawDensity $ surfaceLayerDensity state
-  -- print $ waterDensity state
-  swapBuffers
+    SDL.showWindow window
+    _ <- SDL.glCreateContext window
 
-idleFunc :: IORef State -> IORef MouseInput -> IdleCallback
-idleFunc sref iref = do
-  input <- readIORef iref
-  let src = getSourceFromMouseInput input dims
-  modifyIORef sref (nextState src)
-  postRedisplay Nothing
+    return window
 
-------- KEYBOARD INPUT AND HANDLING
-setMouseData :: KeyState -> (Int, Int) -> (Int, Int) -> MouseInput
-setMouseData km coords@(x, y) viewport =
-  case km of
-    Down -> getDuplicateMouseInput True (coords, canvas, viewport)
-    Up   -> getDuplicateMouseInput False (coords, canvas, viewport)
+closeWindow :: SDL.Window -> SDL.Texture -> IO ()
+closeWindow window texture = do
+    SDL.destroyTexture texture
+    SDL.destroyWindow window
+    SDL.quit
 
-setMouseMovedData :: (Int, Int) -> (Int, Int) -> MouseInput -> MouseInput
-setMouseMovedData currPos viewport =
-  getMouseInput True (currPos, canvas, viewport)
+------- animate -------
 
-keyMouseFunc :: IORef MouseInput -> IORef State -> KeyboardMouseCallback
-keyMouseFunc _ _ (Char 'q') _ _ _ = exitSuccess
-keyMouseFunc _ s (Char 'c') _ _ _ = writeIORef s (initialState dims)
-keyMouseFunc i _ _ km _ (Position x y) = do
-  (_, Size width height) <- G.get viewport
-  writeIORef i
-    $ setMouseData
-        km
-        (fromIntegral x :: Int, fromIntegral y :: Int)
-        (fromIntegral width, fromIntegral height)
+initAnimation :: V2 CInt -> State -> IO (Event EventPayload, (Int, Int))
+initAnimation (V2 x y) state = return (NoEvent, (fromIntegral x, fromIntegral y))
 
-mouseMotionFunc :: IORef MouseInput -> MotionCallback
-mouseMotionFunc i (Position x y) = do
-  (_, Size width height) <- G.get viewport
-  input <- readIORef i
-  modifyIORef i
-    $ setMouseMovedData
-        (fromIntegral x, fromIntegral y)
-        (fromIntegral width, fromIntegral height)
-
--- This just starts up the event loop
 main :: IO ()
 main = do
-  getArgsAndInitialize
-  initialDisplayMode $= [DoubleBuffered, RGBAMode]
-  let (screenWidth, screenHeight) = canvasScreen canvas
-  initialWindowSize
-    $= Size (fromIntegral screenWidth) (fromIntegral screenHeight)
-  initialWindowPosition $= Position 0 0
-  G.createWindow "flowpaint"
-  stateRef <- newIORef (initialState dims)
-  input <- newIORef initialMouse
-  displayCallback $= displayFunc stateRef
-  keyboardMouseCallback $= Just (keyMouseFunc input stateRef)
-  idleCallback $= Just (idleFunc stateRef input)
-  motionCallback $= Just (mouseMotionFunc input)
-  mainLoop
+  let windowDims = (500, 500)
+  window <- openWindow "flowpaint" windowDims
+  renderer <- SDL.createRenderer window (-1) defaultRenderer
+  initTime <- newMVar =<< SDL.time
+  let varWinSize = windowSize window
+  currWinSize <- get varWinSize
+  let canvasSize = 100
+  
+  let initState = initialState canvasSize
+  let initMouse = initialMouse
+  
+  texture <- initResources initState renderer
+  let initialise = initAnimation currWinSize initState
+  let sense = senseInput initTime varWinSize
+  let actuate = renderState (texture, renderer)
+  let sf = signalFunction initState initMouse
+
+  reactimate initialise sense actuate sf
+  closeWindow window texture

@@ -4,7 +4,8 @@ module Simulation.Source
   ) where
 
 import           Data.List
-import           Interface.UserInput
+import Interface.UserInput
+    ( MouseInput(mousePos, mouseDown, mousePosLast) )
 import           Utils.Fields
 import           Utils.Matrix
 

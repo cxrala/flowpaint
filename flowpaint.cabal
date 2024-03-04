@@ -31,14 +31,22 @@ library
     Simulation.State
     Utils.Matrix
     Utils.Fields
-    Interface.Canvas
     Interface.UserInput
+    Interaction.Input
+    Interaction.Render
+    Interaction.Sense
+    Interaction.SignalFunctions
 
   build-depends:
     , base    ^>=4.17.2.0
     , vector
     , hashable
     , random
+    , Yampa
+    , sdl2
+    , linear
+    , bytestring
+    , OpenGL
   hs-source-dirs:  src
 
 executable flowpaint
@@ -58,6 +66,6 @@ executable flowpaint
     , simple-affine-space
     , vector
     , Yampa
-
+    , text
   hs-source-dirs:   app
   default-language: Haskell2010
