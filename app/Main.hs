@@ -41,31 +41,6 @@ appLoop renderer = do
 
 openWindow :: Text -> (Int, Int) -> IO SDL.Window
 openWindow title (sizex, sizey) = do
-    -- SDL.setHintWithPriority DefaultPriority HintRenderDriver OpenGL
-    -- glSetAttribute SDL_GL_CONTEXT_MAJOR_VERSION 4
-    -- glSetAttribute SDL_GL_CONTEXT_MAJOR_VERSION 1
-    -- SDL.initializeAll
-    -- glSetAttribute SDL_GL_CONTEXT_PROFILE_MASK SDL_GL_CONTEXT_PROFILE_CORE
-
-    -- SDL.HintRenderScaleQuality $= SDL.ScaleLinear                    
-    -- do renderQuality <- SDL.get SDL.HintRenderScaleQuality          
-    --    when (renderQuality /= SDL.ScaleLinear) $                    
-    --      putStrLn "Warning: Linear texture filtering not enabled!"
-
-    -- -- let config = OpenGLConfig { glColorPrecision = V4 8 8 8 0
-    -- --                           , glDepthPrecision = 24
-    -- --                           , glStencilPrecision = 8
-    -- --                           , glMultisampleSamples = 4
-    -- --                           , glProfile = Core Normal 3 3
-    -- --                           }
-
-    -- window <- SDL.createWindow
-    --           title
-    --           SDL.defaultWindow
-    --           { SDL.windowInitialSize = V2 sizex sizey } 
-
-    -- SDL.showWindow window
-    -- _ <- SDL.glCreateContext window
     SDL.initializeAll
 
     SDL.HintRenderScaleQuality $= SDL.ScaleLinear
@@ -109,12 +84,12 @@ main = do
   initTime <- newMVar =<< SDL.time
   let varWinSize = windowSize window
   currWinSize <- get varWinSize
-  let canvasSize = 50
+  let canvasSize = 100
   
   let initState = initialState canvasSize
   let initMouse = initialMouse
   
-  (program, texture) <- initResources initState renderer
+  texture <- initResources initState renderer
   let initialise = initAnimation currWinSize initState
   let sense = senseInput initTime varWinSize
   let actuate = renderState (texture, renderer)

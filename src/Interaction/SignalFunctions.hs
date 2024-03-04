@@ -1,5 +1,6 @@
 {-# LANGUAGE Arrows            #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Interaction.SignalFunctions
   ( signalFunction
@@ -13,6 +14,7 @@ import Data.Functor
 import Simulation.State
 import Interface.UserInput
 import Simulation.Source (getSourceFromMouseInput)
+import Debug.Trace (trace)
 
 type WinSize = (Int, Int)
 

@@ -30,7 +30,6 @@ getMouseInput ::
      Bool -> ((Int, Int), CanvasSizeN, WindowDims) -> MouseInput -> MouseInput
 getMouseInput isDown canvasInfo@(screenPosCurrent, n, windowDims) prevMouseInput =
   let scaledCurrentPos = canvasPosFromScreen n windowDims screenPosCurrent
-      _ = trace (show scaledCurrentPos) ()
    in if not (mouseDown prevMouseInput) && isDown
         then MouseInput
                { mouseDown = isDown

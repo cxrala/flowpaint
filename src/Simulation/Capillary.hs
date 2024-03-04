@@ -8,7 +8,7 @@ import qualified Data.Bifunctor
 import           Data.Hashable
 import           Data.List              (sort, unfoldr)
 import           Data.Vector            (Vector, generate)
-import           System.Random
+import System.Random ( uniformR, mkStdGen )
 import           System.Random.Stateful
 import           Utils.Fields
 import           Utils.Matrix

@@ -36,7 +36,6 @@ library
     Interaction.Render
     Interaction.Sense
     Interaction.SignalFunctions
-    Rendering.LoadShaders
 
   build-depends:
     , base    ^>=4.17.2.0

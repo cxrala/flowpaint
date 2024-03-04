@@ -16,9 +16,9 @@ type WinInput = Event SDL.EventPayload -- SDL events
 
 -- the AppInput: i.e. the input we actually care about
 data AppInput = AppInput
-  { inpMouseLeft   :: Maybe (Double, Double) -- ^ Down button currently down
-  , inpMouseRight  :: Maybe (Double, Double) -- ^ Right button currently down
-  , inpQuit        :: Bool -- ^ SDL's QuitEvent
+  { inpMouseLeft   :: Maybe (Double, Double)
+  , inpMouseRight  :: Maybe (Double, Double)
+  , inpQuit        :: Bool
   , inpKeyPressed  :: Maybe SDL.Scancode
   , inpKeyReleased :: Maybe SDL.Scancode
   }

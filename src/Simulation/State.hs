@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Simulation.State
   ( State(..)
   , nextState
@@ -28,10 +29,10 @@ data State = State
   }
 
 data PhysicsConstants = PhysicsConstants
-  { physConstantDt     :: Double -- simulation speed
-  , physConstantDiff   :: Double -- diffusion rate
-  , physConstantVisc   :: Double -- viscosity
-  , physConstantSource :: Double -- density deposited
+  { physConstantDt     :: !Double -- simulation speed
+  , physConstantDiff   :: !Double -- diffusion rate
+  , physConstantVisc   :: !Double -- viscosity
+  , physConstantSource :: !Double -- density deposited
   }
 
 zeroMatrix dims = matrixInit dims 0

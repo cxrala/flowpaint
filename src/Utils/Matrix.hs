@@ -74,7 +74,8 @@ matrixImap f m = m {vector = V.imap (f . (`raiseDims` m)) $ vector m}
 -- INCLUSIVE within bounds check.
 matrixImapCheckbounds ::
     V.Unbox a => ((Int, Int), (Int, Int)) -> ((Int, Int) -> a -> a) -> Matrix a -> Matrix a
-matrixImapCheckbounds bounds f m = m {vector = inPlace mapPoints $ vector m}
+matrixImapCheckbounds bounds f m = 
+  m {vector = inPlace mapPoints $ vector m}
   where mapPoint mv point = MV.modify mv (f point) $ flattenDims point m
         mapPoints mv = forM_ (range bounds) (mapPoint mv)
   -- matrixImap (\point a ->
