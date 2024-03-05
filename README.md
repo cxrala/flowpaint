@@ -1,5 +1,5 @@
 # Flowpaint
-A functional reactive live painting software.
+A functional reactive live painting software. Inspiration taken from https://github.com/madjestic/Haskell-OpenGL-Tutorial/tree/master/MandelbrotYampa.
 
 For now, it is:
 
