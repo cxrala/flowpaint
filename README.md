@@ -5,6 +5,9 @@ For now, it is:
 
 <img src="ScreenRecording2024-01-29at17.26.301-ezgif.com-speed.gif" width="300" height="300" />
 
+## How to run
+- `git clone` the directory
+- run with `cabal run`
 
 ## Things to do
 - Finalise the implementation of the watercolour diffusion algorithm 👍
