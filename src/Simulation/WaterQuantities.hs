@@ -114,7 +114,7 @@ updateWater waterQuantities source heightMap v@(vx, vy) mask dt n =
 
 
 updateDens :: Matrix Double -> Matrix Double -> Matrix Double -> (Matrix Double, Matrix Double) -> Matrix Bool -> Double -> Int -> ScalarField
-updateDens density source heightMap vNew mask dt n =
+updateDens !density !source !heightMap !vNew !mask !dt !n =
   let !vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
       !(wNew, maskNew) = addSource density source mask dt
       !diffused = diffuseWater n 0 source wNew diff dt

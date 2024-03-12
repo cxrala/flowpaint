@@ -29,6 +29,7 @@ library
     Simulation.Capillary
     Simulation.Source
     Simulation.State
+    Simulation.Colors
     Utils.Matrix
     Utils.Fields
     Interface.UserInput

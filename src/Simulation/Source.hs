@@ -8,9 +8,9 @@ import           Data.List
 import           Interface.UserInput (MouseInput (mouseDown, mousePos, mousePosLast))
 import           Utils.Fields
 import           Utils.Matrix
-import Debug.Trace (trace)
+import Simulation.Colors
 
-type Source = ScalarField
+type Source = (ScalarField, Color)
 
 -- TODO: taken from line function, figure out which one
 line :: (Int, Int) -> (Int, Int) -> [(Int, Int)]
@@ -64,5 +64,5 @@ getSourceFromMouseInput mouseInput dims =
                   (\x ->
                      if x `elem` pixels
                        then 1
-                       else 0))
+                       else 0), Blue)
     else Nothing

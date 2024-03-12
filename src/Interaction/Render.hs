@@ -14,12 +14,13 @@ import           GHC.Float                 (castFloatToWord32, double2Float)
 import           Graphics.Rendering.OpenGL as GL hiding (Size)
 import qualified SDL
 import           SDL                       (PixelFormat (RGBA8888))
-import           Simulation.State          (State (..))
+import           Simulation.State          (State (..), getSurfaceLayer)
 import           Utils.Matrix              (vector)
 import qualified SDL.Internal.Exception as SDL
 import Control.Exception (try, SomeException (..))
 import Foreign.C (CString)
 import SDL.Internal.Exception (getError)
+import qualified Simulation.Colors as Colors
 
 -- in https://wiki.haskell.org/Yampa/reactimate,
 -- corresponds to output/actuate
@@ -37,7 +38,7 @@ draw = updateTexture
 
 updateTexture :: State -> SDL.Texture -> SDL.Renderer -> IO ()
 updateTexture state texture renderer = do
-  let densities = vector $ surfaceLayerDensity state
+  let densities = vector $ getSurfaceLayer Colors.Blue state
   (vptr, pitch) <- SDL.lockTexture texture Nothing
   let ptr = castPtr vptr :: Ptr (SDL.V4 Word8)
   V.imapM_ (\i -> pokeElemOff ptr i . mapDensityToRGBA) densities

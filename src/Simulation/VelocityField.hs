@@ -28,7 +28,7 @@ diffuse ::
      Int -> Int -> ScalarField -> ScalarField -> Double -> Double -> ScalarField
 diffuse n b x x0 diff dt =
   let a = dt * diff * fromIntegral n * fromIntegral n
-      diffused =
+      !diffused =
         matrixSetBnd n b
           . (\y ->
                matrixImapCheckbounds
@@ -40,16 +40,16 @@ diffuse n b x x0 diff dt =
    in iterate diffused x !! 5
 
 advect :: Int -> Int -> ScalarField -> VelocityField -> Double -> ScalarField
-advect n b d0 (u, v) dt =
-  let dt0 = dt * fromIntegral n
-      d =
+advect !n !b !d0 (u, v) dt =
+  let !dt0 = dt * fromIntegral n
+      !d =
         matrixImapCheckbounds
           ((1, 1), (n, n))
           (\idxs@(idx, idy) val ->
              let lb = 0.5
                  ub = fromIntegral n + 0.5
-                 x = clamp (lb, ub) $ fromIntegral idx - dt0 * matrixGet idxs u
-                 y = clamp (lb, ub) $ fromIntegral idy - dt0 * matrixGet idxs v
+                 !x = clamp (lb, ub) $ fromIntegral idx - dt0 * matrixGet idxs u
+                 !y = clamp (lb, ub) $ fromIntegral idy - dt0 * matrixGet idxs v
                  i0 = floor x
                  i1 = i0 + 1
                  j0 = floor y
@@ -69,7 +69,7 @@ project ::
      Int -> VelocityFieldComponent -> VelocityFieldComponent -> VelocityField
 project n u v =
   let h = 1 / fromIntegral n
-      div =
+      !div =
         matrixSetBnd n 0
           $ matrixImapCheckbounds
               ((1, 1), (n, n))
@@ -83,7 +83,7 @@ project n u v =
               u
       p = matrixInit (matrixDims u) 0
       psolv =
-        let solvStep -- TODO: lift linsolver out of functions diffuse and here
+        let !solvStep -- TODO: lift linsolver out of functions diffuse and here
              =
               matrixSetBnd n 0
                 . (\y ->
@@ -94,7 +94,7 @@ project n u v =
                             / 4)
                        y)
          in iterate solvStep p !! 5
-      newU =
+      !newU =
         matrixSetBnd n 1
           $ matrixImapCheckbounds
               ((1, 1), (n, n))
@@ -105,7 +105,7 @@ project n u v =
                             - matrixGet (i - 1, j) psolv)
                        / h)
               u
-      newV =
+      !newV =
         matrixSetBnd n 2
           $ matrixImapCheckbounds
               ((1, 1), (n, n))

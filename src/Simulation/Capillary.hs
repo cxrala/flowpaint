@@ -22,7 +22,7 @@ import Data.Ord (clamp)
 numP = 1
 
 n = 0
-threshhold = 0.1
+threshhold = 0.05
 evaporation = 0.005
 alpha = 10
 

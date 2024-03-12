@@ -17,7 +17,6 @@ import Simulation.State
 import Foreign.C (CInt)
 import Data.Text (Text)
 import SDL.Raw.Enum
-import SDL.Raw (glSetAttribute)
 import Interface.UserInput (initialMouse)
 
 

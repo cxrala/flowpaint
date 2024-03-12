@@ -64,7 +64,7 @@ matrixFromList l dims@(x, y) =
     assert (V.length v == x * y) (Matrix {vector = V.fromList l, dims = dims})
 
 matrixGet :: V.Unbox a => (Int, Int) -> Matrix a -> a
-matrixGet ij m = vector m ! flattenDims ij m
+matrixGet !ij !m = vector m ! flattenDims ij m
 
 matrixMap :: (V.Unbox a, V.Unbox b) => (a -> b) -> Matrix a -> Matrix b
 matrixMap f m = m {vector = V.map f (vector m)}
