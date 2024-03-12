@@ -1,7 +1,8 @@
 -- in reference to https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=dcf15363bc964044a554fc5f4af8e32101c083fe
 {-# LANGUAGE BangPatterns #-}
 module Simulation.WaterQuantities
-  ( updateWater
+  ( updateWater,
+  updateDens
   ) where
 
 import           Data.Ord                 (clamp)
@@ -108,8 +109,14 @@ updateWater ::
   -> (VelocityField, ScalarField)
 updateWater waterQuantities source heightMap v@(vx, vy) mask dt n =
   let !vNew = addVfieldHeightDifferences v waterQuantities dt n
-      !vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
-      !(wNew, maskNew) = addSource waterQuantities source mask dt
+      !dens = updateDens waterQuantities source heightMap vNew mask dt n
+   in (vNew, dens)
+
+
+updateDens :: Matrix Double -> Matrix Double -> Matrix Double -> (Matrix Double, Matrix Double) -> Matrix Bool -> Double -> Int -> ScalarField
+updateDens density source heightMap vNew mask dt n =
+  let !vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
+      !(wNew, maskNew) = addSource density source mask dt
       !diffused = diffuseWater n 0 source wNew diff dt
       !advected = advectWater n 0 diffused (vxNew, vyNew) dt
       !clamped =
@@ -126,4 +133,4 @@ updateWater waterQuantities source heightMap v@(vx, vy) mask dt n =
           maskNew
           clamped
       !evaporated = evaporateWater masked dt
-   in (vNew, evaporated)
+      in evaporated

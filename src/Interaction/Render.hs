@@ -46,8 +46,7 @@ updateTexture state texture renderer = do
 mapDensityToRGBA :: Double -> SDL.V4 Word8
 mapDensityToRGBA density =
   let d = floor $ if density >= 1 then 255 else clamp (0, 1) density * 256
-      dPresent = if d > 0 then 255 else 0
-   in SDL.V4 0 0 d dPresent
+   in SDL.V4 0 0 255 d
 
 createTexture :: State -> SDL.Renderer -> IO SDL.Texture
 createTexture state renderer = do

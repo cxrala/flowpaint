@@ -41,7 +41,6 @@ extractMousePos :: Integral b => Point V2 b -> (Double, Double)
 extractMousePos (P (V2 x y)) = (fromIntegral x, fromIntegral y)
 
 nextAppInput :: AppInput -> SDL.EventPayload -> AppInput
--- TODO: BUG OPPORTUNITY: does the position not change if the mouse doesn't move?
 nextAppInput appInput (SDL.MouseButtonEvent ev) =
     let mousePos = extractMousePos (SDL.mouseButtonEventPos ev)
         button = SDL.mouseButtonEventButton ev
