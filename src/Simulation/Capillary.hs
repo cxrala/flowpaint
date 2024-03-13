@@ -19,7 +19,7 @@ import Data.Ord (clamp)
 
 -- TODO: refactor, this is a mess
 
-numP = 1
+numP = 10
 
 n = 0
 threshhold = 0.05
