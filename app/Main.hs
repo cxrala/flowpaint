@@ -79,13 +79,13 @@ initAnimation (V2 x y) state = return (NoEvent, (fromIntegral x, fromIntegral y)
 
 main :: IO ()
 main = do
-  let windowDims = (1000, 1000)
+  let windowDims = (700, 700)
   window <- openWindow "flowpaint" windowDims
   renderer <- SDL.createRenderer window (-1) defaultRenderer
   initTime <- newMVar =<< SDL.time
   let varWinSize = windowSize window
   currWinSize <- get varWinSize
-  let canvasSize = 75
+  let canvasSize = 80
   
   let initState = initialState canvasSize
   let initMouse = initialMouse

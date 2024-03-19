@@ -19,9 +19,9 @@ import Data.Ord (clamp)
 
 -- TODO: refactor, this is a mess
 
-numP = 1
+numP = 2
 
-n = 0
+n = 1
 threshhold = 0.05
 evaporation = 0
 alpha = 10
