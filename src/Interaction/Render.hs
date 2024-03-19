@@ -3,34 +3,37 @@ module Interaction.Render
   , initResources
   ) where
 
+import           Control.Exception         (SomeException (..), try)
 import           Control.Monad             (when)
 import           Data.Maybe                (isJust)
 import           Data.Ord                  (clamp)
 import           Data.Vector.Unboxed       as V
 import           Data.Word                 (Word32, Word8)
-import           Foreign                   (Storable (pokeElemOff, peekElemOff))
+import           Foreign                   (Storable (peekElemOff, pokeElemOff))
+import           Foreign.C                 (CString)
 import           Foreign.Ptr
 import           GHC.Float                 (castFloatToWord32, double2Float)
 import           Graphics.Rendering.OpenGL as GL hiding (Size)
 import qualified SDL
 import           SDL                       (PixelFormat (RGBA8888))
+import qualified SDL.Internal.Exception    as SDL
+import           SDL.Internal.Exception    (getError)
 import           Simulation.State          (State (..))
 import           Utils.Matrix              (vector)
-import qualified SDL.Internal.Exception as SDL
-import Control.Exception (try, SomeException (..))
-import Foreign.C (CString)
-import SDL.Internal.Exception (getError)
 
 -- in https://wiki.haskell.org/Yampa/reactimate,
 -- corresponds to output/actuate
-renderState :: (SDL.Texture, SDL.Renderer) -> Bool -> State -> IO Bool
-renderState (texture, renderer) _ state = do
-  SDL.rendererDrawColor renderer $= SDL.V4 255 255 255 255
-  SDL.clear renderer
-  draw state texture renderer
-  SDL.copy renderer texture Nothing Nothing
-  SDL.present renderer
-  return False
+renderState :: (SDL.Texture, SDL.Renderer) -> Bool -> Maybe State -> IO Bool
+renderState (texture, renderer) _ state =
+  case state of
+    Nothing -> return True
+    Just canvasState -> do
+      SDL.rendererDrawColor renderer $= SDL.V4 255 255 255 255
+      SDL.clear renderer
+      draw canvasState texture renderer
+      SDL.copy renderer texture Nothing Nothing
+      SDL.present renderer
+      return False
 
 draw :: State -> SDL.Texture -> SDL.Renderer -> IO ()
 draw = updateTexture
@@ -45,8 +48,12 @@ updateTexture state texture renderer = do
 
 mapDensityToRGBA :: Double -> SDL.V4 Word8
 mapDensityToRGBA density =
-  let d = floor $ if density >= 1 then 255 else clamp (0, 1) density * 256
-   in SDL.V4 0 0 255 d
+  let d =
+        floor
+          $ if density >= 1
+              then 255
+              else clamp (0, 1) density * 256
+   in SDL.V4 0 0 139 d
 
 createTexture :: State -> SDL.Renderer -> IO SDL.Texture
 createTexture state renderer = do

@@ -19,6 +19,7 @@ data AppInput = AppInput
   { inpMouseLeft   :: !(Maybe (Double, Double))
   , inpMouseRight  :: !(Maybe (Double, Double))
   , inpQuit        :: !Bool
+  , inpClear       :: !Bool
   , inpKeyPressed  :: !(Maybe SDL.Scancode)
   , inpKeyReleased :: !(Maybe SDL.Scancode)
   }
@@ -29,6 +30,7 @@ initAppInput =
     { inpMouseLeft = Nothing
     , inpMouseRight = Nothing
     , inpQuit = False
+    , inpClear = False
     , inpKeyPressed = Nothing
     , inpKeyReleased = Nothing
     }
@@ -55,8 +57,10 @@ nextAppInput appInput (SDL.MouseMotionEvent ev) =
     Just _ -> appInput {inpMouseLeft = Just $ extractMousePos (SDL.mouseMotionEventPos ev)}
     Nothing -> appInput 
 nextAppInput appInput (SDL.KeyboardEvent ev) =
+  let motion = SDL.keyboardEventKeyMotion ev in
     case scancode ev of
         SDL.ScancodeEscape -> appInput { inpQuit = True }
-        _ -> appInput -- could put more if want to.
+        SDL.ScancodeC -> appInput { inpClear = motion == SDL.Pressed }
+        _ -> appInput { inpClear = False } -- could put more if want to.
     where scancode = SDL.keysymScancode . SDL.keyboardEventKeysym
 nextAppInput appInput _ = appInput

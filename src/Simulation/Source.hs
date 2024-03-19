@@ -56,7 +56,7 @@ getSourceFromMouseInput mouseInput dims =
       mCurr = mousePos mouseInput in
   if mouseDown mouseInput && mPrev /= mCurr
     then let linePixels = drop 1 $ line mPrev mCurr
-             pixels = grabPixels 1 linePixels
+             pixels = linePixels
             --  pixels = linePixels
           in Just
                (matrixGenerate

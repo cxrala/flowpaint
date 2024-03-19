@@ -22,8 +22,8 @@ import Data.Ord (clamp)
 numP = 1
 
 n = 0
-threshhold = 0.1
-evaporation = 0.005
+threshhold = 0.05
+evaporation = 0
 alpha = 10
 
 genPoints :: Int -> (Int, Int) -> [(Double, Double)]
