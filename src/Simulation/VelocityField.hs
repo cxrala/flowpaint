@@ -46,22 +46,7 @@ advect !n !b !d0 (u, v) dt =
         matrixImapCheckbounds
           ((1, 1), (n, n))
           (\idxs@(idx, idy) val ->
-             let lb = 0.5
-                 ub = fromIntegral n + 0.5
-                 !x = clamp (lb, ub) $ fromIntegral idx - dt0 * matrixGet idxs u
-                 !y = clamp (lb, ub) $ fromIntegral idy - dt0 * matrixGet idxs v
-                 i0 = floor x
-                 i1 = i0 + 1
-                 j0 = floor y
-                 j1 = j0 + 1
-                 s1 = x - fromIntegral i0
-                 s0 = 1 - s1
-                 t1 = y - fromIntegral j0
-                 t0 = 1 - t1
-              in s0 * (t0 * matrixGet (i0, j0) d0 + t1 * matrixGet (i0, j1) d0)
-                   + s1
-                       * (t0 * matrixGet (i1, j0) d0
-                            + t1 * matrixGet (i1, j1) d0))
+             val)
           d0
    in matrixSetBnd n b d
 
