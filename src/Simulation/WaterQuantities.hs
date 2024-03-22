@@ -118,19 +118,20 @@ updateDens !density !source !heightMap !vNew !mask !dt !n =
   let !vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
       !(wNew, maskNew) = addSource density source mask dt
       !diffused = diffuseWater n 0 source wNew diff dt
-      !advected = advectWater n 0 diffused (vxNew, vyNew) dt
-      !clamped =
-        elementwiseCombine
-          (\height water -> clamp (0, height) water)
-          heightMap
-          advected
-      !masked =
-        elementwiseCombine
-          (\mval val ->
-             if mval
-               then val
-               else 0)
-          maskNew
-          clamped
-      !evaporated = evaporateWater masked dt
-      in evaporated
+      -- !advected = advectWater n 0 diffused (vxNew, vyNew) dt
+      -- !clamped =
+      --   elementwiseCombine
+      --     (\height water -> clamp (0, height) water)
+      --     heightMap
+      --     advected
+      -- !masked =
+      --   elementwiseCombine
+      --     (\mval val ->
+      --        if mval
+      --          then val
+      --          else 0)
+      --     maskNew
+      --     clamped
+      -- !evaporated = evaporateWater masked dt
+      -- in evaporated
+      in diffused
