@@ -19,12 +19,12 @@ import Data.Ord (clamp)
 
 -- TODO: refactor, this is a mess
 
-numP = 1
+numP = 2
 
-n = 0
-threshhold = 0.1
-evaporation = 0.005
-alpha = 10
+n = 1
+threshhold = 0.005
+evaporation = 0.07
+alpha = 3
 
 genPoints :: Int -> (Int, Int) -> [(Double, Double)]
 genPoints seed dims@(x, y) =
@@ -71,7 +71,7 @@ absorbShallow capillaryLayer shallowFluidLayer heightMap dt =
                    ])
           capillaryLayer
    in ( elementwiseCombine (+) capillaryLayer differences
-      , elementwiseCombine (-) shallowFluidLayer differences)
+      , elementwiseCombine (\a b -> a - (b/alpha)) shallowFluidLayer differences)
 
 diffuseCapillary :: ScalarField -> ScalarField -> Int -> Double -> Double -> ScalarField
 diffuseCapillary capillaryLayer heightMap n = diffuse n 0 (matrixInit (matrixDims capillaryLayer) 0) capillaryLayer

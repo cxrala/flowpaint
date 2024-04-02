@@ -1,5 +1,5 @@
 module Interaction.Input
-  ( WinInput,
+  ( RawInput,
   parseWinInput,
   AppInput(..)
   ) where
@@ -12,13 +12,14 @@ import SDL.Vect (Point(P))
 import           Linear (V2(..))
 import Interface.UserInput
 
-type WinInput = Event SDL.EventPayload -- SDL events
+type RawInput = Event SDL.EventPayload -- SDL events
 
 -- the AppInput: i.e. the input we actually care about
 data AppInput = AppInput
   { inpMouseLeft   :: !(Maybe (Double, Double))
   , inpMouseRight  :: !(Maybe (Double, Double))
   , inpQuit        :: !Bool
+  , inpClear       :: !Bool
   , inpKeyPressed  :: !(Maybe SDL.Scancode)
   , inpKeyReleased :: !(Maybe SDL.Scancode)
   }
@@ -29,19 +30,19 @@ initAppInput =
     { inpMouseLeft = Nothing
     , inpMouseRight = Nothing
     , inpQuit = False
+    , inpClear = False
     , inpKeyPressed = Nothing
     , inpKeyReleased = Nothing
     }
 
 -- how the app input changes given the win input
-parseWinInput :: SF WinInput AppInput
+parseWinInput :: SF RawInput AppInput
 parseWinInput = accumHoldBy nextAppInput initAppInput
 
 extractMousePos :: Integral b => Point V2 b -> (Double, Double)
 extractMousePos (P (V2 x y)) = (fromIntegral x, fromIntegral y)
 
 nextAppInput :: AppInput -> SDL.EventPayload -> AppInput
--- TODO: BUG OPPORTUNITY: does the position not change if the mouse doesn't move?
 nextAppInput appInput (SDL.MouseButtonEvent ev) =
     let mousePos = extractMousePos (SDL.mouseButtonEventPos ev)
         button = SDL.mouseButtonEventButton ev
@@ -56,8 +57,10 @@ nextAppInput appInput (SDL.MouseMotionEvent ev) =
     Just _ -> appInput {inpMouseLeft = Just $ extractMousePos (SDL.mouseMotionEventPos ev)}
     Nothing -> appInput 
 nextAppInput appInput (SDL.KeyboardEvent ev) =
+  let motion = SDL.keyboardEventKeyMotion ev in
     case scancode ev of
         SDL.ScancodeEscape -> appInput { inpQuit = True }
-        _ -> appInput -- could put more if want to.
+        SDL.ScancodeC -> appInput { inpClear = motion == SDL.Pressed }
+        _ -> appInput { inpClear = False } -- could put more if want to.
     where scancode = SDL.keysymScancode . SDL.keyboardEventKeysym
 nextAppInput appInput _ = appInput

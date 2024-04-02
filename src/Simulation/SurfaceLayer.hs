@@ -5,6 +5,7 @@ where
 
 import Utils.Matrix
 import Utils.Fields
+import Data.Ord (clamp)
 
 maxWater = 1
 pigdensity = 0.9
@@ -24,5 +25,5 @@ calculateSurfaceLayer :: ScalarField -> ScalarField -> ScalarField -> ScalarFiel
 calculateSurfaceLayer shallowPigmentField prevPigmentDeposited waterField heightMap dt =
     (
         calculateNewShallowPigmentLayer shallowPigmentField prevPigmentDeposited waterField heightMap dt,
-        calculateNewSurfaceLayer shallowPigmentField prevPigmentDeposited waterField heightMap dt
+        matrixMap (clamp (0, 20)) $ calculateNewSurfaceLayer shallowPigmentField prevPigmentDeposited waterField heightMap dt
     )
