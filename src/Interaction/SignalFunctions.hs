@@ -1,6 +1,4 @@
-{-# LANGUAGE Arrows            #-}
 {-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Interaction.SignalFunctions
   ( signalFunction
@@ -22,7 +20,7 @@ data KeyboardInfo
   = Quit
   | ClearCanvas
 
-signalFunction :: State -> MouseInput -> SF (WinInput, WinSize) (Maybe State)
+signalFunction :: State -> MouseInput -> SF (RawInput, WinSize) (Maybe State)
 signalFunction initialState initialMouseIn =
   first parseWinInput >>> foo initialState initialMouseIn
 
@@ -46,7 +44,7 @@ foo state inputs =
       (diffuseWithMouseInput initialState initialMouse >>> arr Just)
         &&& edgy (arr (appInToKeyboardInfo . fst))
 
--- SF (WinInput, WinSize) State -> SF (AppInput, WinSize) (Maybe State)
+-- SF (RawInput, WinSize) State -> SF (AppInput, WinSize) (Maybe State)
 appInToKeyboardInfo :: AppInput -> Event KeyboardInfo
 appInToKeyboardInfo appInput
   | inpQuit appInput = Event Quit

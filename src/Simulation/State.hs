@@ -26,14 +26,14 @@ data State = State
   , constants             :: !PhysicsConstants
   , canvasSize      :: !Int
   , canvasDims :: !(Int, Int)
-  }
+  } deriving (Show, Eq)
 
 data PhysicsConstants = PhysicsConstants
   { physConstantDt     :: !Double -- simulation speed
   , physConstantDiff   :: !Double -- diffusion rate
   , physConstantVisc   :: !Double -- viscosity
   , physConstantSource :: !Double -- density deposited
-  }
+  } deriving (Show, Eq)
 
 zeroMatrix dims = matrixInit dims 0
 
@@ -83,7 +83,7 @@ step !src !prevState =
         calculateSurfaceLayer dField (surfaceLayerDensity prevState) dField (heightMap prevState) dt
       (newCapillary, newShallowFluid, newMask) =
         simulateCapillaryFlow (capillaryLayerDensity prevState) dField (heightMap prevState) n diff dt
-  in prevState { waterDensity = dField
+  in prevState { waterDensity = newShallowFluid
       , velocityField = vField
       , pigmentDensity = newPigmentLayer
       , surfaceLayerDensity = newSurfaceLayer

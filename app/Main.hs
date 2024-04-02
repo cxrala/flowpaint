@@ -20,25 +20,6 @@ import SDL.Raw.Enum
 import SDL.Raw (glSetAttribute)
 import Interface.UserInput (initialMouse)
 
-
-appLoop :: Renderer -> IO()
-appLoop renderer = do
-  events <- pollEvents
-  let eventIsQPress event =
-        case eventPayload event of
-          KeyboardEvent keyboardEvent ->
-            keyboardEventKeyMotion keyboardEvent == Pressed &&
-            keysymKeycode (keyboardEventKeysym keyboardEvent) == KeycodeQ
-          _ -> False
-      qPressed = any eventIsQPress events
-
-  rendererDrawColor renderer $= V4 0 255 0 255
-  drawPoint renderer (P (V2 3 3))
-  present renderer
-  unless qPressed (appLoop renderer)
-
-
-
 openWindow :: Text -> (Int, Int) -> IO SDL.Window
 openWindow title (sizex, sizey) = do
     SDL.initializeAll
@@ -85,7 +66,7 @@ main = do
   initTime <- newMVar =<< SDL.time
   let varWinSize = windowSize window
   currWinSize <- get varWinSize
-  let canvasSize = 80
+  let canvasSize = 70
   
   let initState = initialState canvasSize
   let initMouse = initialMouse

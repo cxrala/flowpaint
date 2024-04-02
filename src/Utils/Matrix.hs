@@ -28,7 +28,7 @@ import Data.Ix (index, inRange, range)
 data Matrix a = Matrix
   { vector :: !(V.Vector a)
   , dims   :: !(Int, Int) -- height, width
-  } deriving Show
+  } deriving (Show, Eq)
 
 -- private
 mWidth :: Matrix a -> Int

@@ -11,9 +11,12 @@ import           Utils.Matrix
 import Debug.Trace (trace)
 
 type Source = ScalarField
+type Point = (Int, Int)
+
+srcDens = 10
 
 -- TODO: taken from line function, figure out which one
-line :: (Int, Int) -> (Int, Int) -> [(Int, Int)]
+line :: Point -> Point -> [Point]
 line pa@(xa, ya) pb@(xb, yb) = map maySwitch . unfoldr go $ (x1, y1, 0)
   where
     steep = abs (yb - ya) > abs (xb - xa)
@@ -50,7 +53,7 @@ circle rad centre@(x, y) =
 grabPixels rad linePixels =
  concatMap (\x -> linePixels >>= circle x) [0..rad]
 
-getSourceFromMouseInput :: MouseInput -> (Int, Int) -> Maybe Source
+getSourceFromMouseInput :: MouseInput -> Point -> Maybe Source
 getSourceFromMouseInput mouseInput dims =
   let mPrev = mousePosLast mouseInput
       mCurr = mousePos mouseInput in
@@ -63,6 +66,6 @@ getSourceFromMouseInput mouseInput dims =
                   dims
                   (\x ->
                      if x `elem` pixels
-                       then 1
+                       then srcDens
                        else 0))
     else Nothing

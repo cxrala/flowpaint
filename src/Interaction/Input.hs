@@ -1,5 +1,5 @@
 module Interaction.Input
-  ( WinInput,
+  ( RawInput,
   parseWinInput,
   AppInput(..)
   ) where
@@ -12,7 +12,7 @@ import SDL.Vect (Point(P))
 import           Linear (V2(..))
 import Interface.UserInput
 
-type WinInput = Event SDL.EventPayload -- SDL events
+type RawInput = Event SDL.EventPayload -- SDL events
 
 -- the AppInput: i.e. the input we actually care about
 data AppInput = AppInput
@@ -36,7 +36,7 @@ initAppInput =
     }
 
 -- how the app input changes given the win input
-parseWinInput :: SF WinInput AppInput
+parseWinInput :: SF RawInput AppInput
 parseWinInput = accumHoldBy nextAppInput initAppInput
 
 extractMousePos :: Integral b => Point V2 b -> (Double, Double)

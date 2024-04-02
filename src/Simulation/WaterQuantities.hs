@@ -17,7 +17,7 @@ wh = 0.06
 
 wi = 1 - wh
 
-epsEvaporation = 0.003
+epsEvaporation = 0.0003
 diff = 0.0001
 
 -- This updated velocity field models the tendency for water to "fill unused spaces" -- leading to the dark edge effect. See 4.1, water diffusion.
@@ -67,36 +67,33 @@ diffuseWater ::
      Int -> Int -> ScalarField -> ScalarField -> Double -> Double -> ScalarField
 diffuseWater = diffuse
 
--- 4.1 Advection. TODO: for now, equivalent to velocity field implementation.
-advectWater ::
-     Int -> Int -> ScalarField -> VelocityField -> Double -> ScalarField
-advectWater = advect
-
--- calculateVolDisplaced :: Double -> Double -> Double -> (Double, Double, Double -> Double -> Bool) -> Double
--- calculateVolDisplaced dt wPrev vCentre (vNeighbour, wNeighbour, fUpRight) =
---     let vAvrg = vCentre + vNeighbour / 2 in
---         if vAvrg `fUpRight` 0 then vAvrg * dt * wNeighbour
---         else vAvrg * dt * wPrev
--- -- 4.1 water advection
+-- -- 4.1 Advection. TODO: for now, equivalent to velocity field implementation.
 -- advectWater ::
---      VelocityField
---   -> ScalarField
---   -> Double
---   -> Int
---   -> ScalarField
--- advectWater v@(vx, vy) w dt n =
---   matrixImapCheckbounds
---     (1, 1, n, n)
---     (\idxs@(i, j) wPrev ->
---         let vCentrex = matrixGet idxs vx
---             vCentrey = matrixGet idxs vy
---             displacedVolumes = map (uncurry $ calculateVolDisplaced dt wPrev) [
---                 (vCentrex, (matrixGet (i + 1, j) vx, matrixGet (i + 1, j) w, (<))),
---                 (vCentrey, (matrixGet (i, j - 1) vy, matrixGet (i, j - 1) w, (<))),
---                 (vCentrex, (matrixGet (i - 1, j) vx, matrixGet (i - 1, j) w, (>))),
---                 (vCentrey, (matrixGet (i, j + 1) vy, matrixGet (i, j + 1) w, (>)))]
---         in clamp (0, 100) (wPrev + 0.0001))
---     w
+--      Int -> Int -> ScalarField -> VelocityField -> Double -> ScalarField
+-- advectWater = advect
+
+calculateVolDisplaced :: Double -> Double -> Double -> (Double, Double, Double -> Double -> Bool) -> Double
+calculateVolDisplaced dt wPrev vCentre (vNeighbour, wNeighbour, fUpRight) =
+    let vAvrg = vCentre + vNeighbour / 2 in
+        if vAvrg `fUpRight` 0 then vAvrg * dt * wNeighbour
+        else vAvrg * dt * wPrev
+-- 4.1 water advection
+advectWater ::
+  Int -> ScalarField -> VelocityField -> Double -> ScalarField
+advectWater n w v@(vx, vy) dt =
+  matrixImapCheckbounds
+    ((1, 1), (n, n))
+    (\idxs@(i, j) wPrev ->
+        let vCentrex = matrixGet idxs vx
+            vCentrey = matrixGet idxs vy
+            displacedVolumes = map (uncurry $ calculateVolDisplaced dt wPrev) [
+                (vCentrex, (matrixGet (i + 1, j) vx, matrixGet (i + 1, j) w, (<))),
+                (vCentrey, (matrixGet (i, j - 1) vy, matrixGet (i, j - 1) w, (<))),
+                (vCentrex, (matrixGet (i - 1, j) vx, matrixGet (i - 1, j) w, (>))),
+                (vCentrey, (matrixGet (i, j + 1) vy, matrixGet (i, j + 1) w, (>)))]
+        in clamp (0, 100) (wPrev + 0.0001))
+    w
+
 -- EXPORTED
 updateWater ::
      ScalarField
@@ -118,7 +115,7 @@ updateDens density source heightMap vNew mask dt n =
   let !vBoundaries@(vxNew, vyNew) = setNormalToZero vNew mask -- Boundary conditions
       !(wNew, maskNew) = addSource density source mask dt
       !diffused = diffuseWater n 0 source wNew diff dt
-      !advected = advectWater n 0 diffused (vxNew, vyNew) dt
+      !advected = advectWater n diffused (vxNew, vyNew) dt
       !clamped =
         elementwiseCombine
           (\height water -> clamp (0, height) water)
