@@ -5,7 +5,7 @@ module Simulation.Source
   ) where
 
 import           Data.List
-import           Interface.UserInput (MouseInput (mouseDown, mousePos, mousePosLast))
+import           Interface.UserInput (MouseInput (mouseDown, mousePos, mousePosLast, mouseRightDown))
 import           Utils.Fields
 import           Utils.Matrix
 import Debug.Trace (trace)
@@ -50,22 +50,22 @@ circle rad centre@(x, y) =
         in (x + x1, y + y1))
     [0, 15 .. 360]
 
-grabPixels rad linePixels =
- concatMap (\x -> linePixels >>= circle x) [0..rad]
+-- neighbours (x, y) = [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1), (x, y)]
 
-getSourceFromMouseInput :: MouseInput -> Point -> Maybe Source
+-- grabPixels = concatMap neighbours
+
+getSourceFromMouseInput :: MouseInput -> (Int, Int) -> Maybe Source
 getSourceFromMouseInput mouseInput dims =
   let mPrev = mousePosLast mouseInput
       mCurr = mousePos mouseInput in
-  if mouseDown mouseInput && mPrev /= mCurr
-    then let linePixels = drop 1 $ line mPrev mCurr
-             pixels = linePixels
-            --  pixels = linePixels
+  if mouseDown mouseInput || mouseRightDown mouseInput
+    then let linePixels = line mPrev mCurr
+            --  pixels = grabPixels linePixels
           in Just
                (matrixGenerate
                   dims
                   (\x ->
-                     if x `elem` pixels
+                     if x `elem` linePixels
                        then srcDens
                        else 0))
     else Nothing

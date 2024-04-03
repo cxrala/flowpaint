@@ -63,14 +63,14 @@ initialState sizeN =
 dimsFromN :: Int -> (Int, Int)
 dimsFromN n = (n + 2, n + 2)
 
-nextState :: Maybe Source -> State -> State
-nextState src prevState = step (fromMaybe (zeroMatrix $ canvasDims prevState) src) prevState
+nextState :: Bool -> Maybe Source -> State -> State
+nextState isPigmentUpdate src prevState = step isPigmentUpdate (fromMaybe (zeroMatrix $ canvasDims prevState) src) prevState
 
 -- nextState src prevState = step (fromMaybe concreteZeroMatrix src) prevState
 --   where concreteZeroMatrix = zeroMatrix . matrixDims $ waterDensity prevState
 
-step :: Source -> State -> State
-step !src !prevState =
+step :: Bool -> Source -> State -> State
+step isPigmentUpdate !src !prevState =
   let n = canvasSize prevState
       constantproperties = constants prevState
       dt = physConstantDt constantproperties
@@ -79,8 +79,11 @@ step !src !prevState =
       zeroGrid = zeroMatrix (matrixDims $ waterDensity prevState)
       vstep = velStep n (velocityField prevState) (zeroGrid, zeroGrid) visc dt
       !(vField, dField) = updateWater (waterDensity prevState) src (heightMap prevState) vstep (mask prevState) dt n
+      pigDens = 
+        if isPigmentUpdate then snd $ updateWater (pigmentDensity prevState) src (heightMap prevState) vstep (mask prevState) dt n
+        else pigmentDensity prevState
       (newPigmentLayer, newSurfaceLayer) =
-        calculateSurfaceLayer dField (surfaceLayerDensity prevState) dField (heightMap prevState) dt
+        calculateSurfaceLayer pigDens (surfaceLayerDensity prevState) dField (heightMap prevState) dt
       (newCapillary, newShallowFluid, newMask) =
         simulateCapillaryFlow (capillaryLayerDensity prevState) dField (heightMap prevState) n diff dt
   in prevState { waterDensity = newShallowFluid

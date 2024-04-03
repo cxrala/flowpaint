@@ -1,10 +1,10 @@
 module Interaction.Input
   ( RawInput,
-  parseWinInput,
+  parseRawInput,
   AppInput(..)
   ) where
 
--- taken mostly from the SDL/Yampa Mandelbrot tutorial.
+-- inspired by the Yampa-Mandelbrot tutorial.
 
 import FRP.Yampa ( SF, Event, accumHoldBy )
 import qualified SDL
@@ -13,15 +13,15 @@ import           Linear (V2(..))
 import Interface.UserInput
 
 type RawInput = Event SDL.EventPayload -- SDL events
+type MousePos = (Double, Double)
 
 -- the AppInput: i.e. the input we actually care about
 data AppInput = AppInput
-  { inpMouseLeft   :: !(Maybe (Double, Double))
-  , inpMouseRight  :: !(Maybe (Double, Double))
+  { inpMouseLeft   :: !(Maybe MousePos)
+  , inpMouseRight  :: !(Maybe MousePos)
   , inpQuit        :: !Bool
   , inpClear       :: !Bool
-  , inpKeyPressed  :: !(Maybe SDL.Scancode)
-  , inpKeyReleased :: !(Maybe SDL.Scancode)
+  , inpToggleWater :: !Bool
   }
 
 initAppInput :: AppInput
@@ -31,13 +31,12 @@ initAppInput =
     , inpMouseRight = Nothing
     , inpQuit = False
     , inpClear = False
-    , inpKeyPressed = Nothing
-    , inpKeyReleased = Nothing
+    , inpToggleWater = False
     }
 
 -- how the app input changes given the win input
-parseWinInput :: SF RawInput AppInput
-parseWinInput = accumHoldBy nextAppInput initAppInput
+parseRawInput :: SF RawInput AppInput
+parseRawInput = accumHoldBy nextAppInput initAppInput
 
 extractMousePos :: Integral b => Point V2 b -> (Double, Double)
 extractMousePos (P (V2 x y)) = (fromIntegral x, fromIntegral y)
@@ -53,14 +52,18 @@ nextAppInput appInput (SDL.MouseButtonEvent ev) =
             (SDL.ButtonLeft, SDL.Pressed) -> appInput {inpMouseLeft = Just mousePos}
             (SDL.ButtonRight, SDL.Pressed) -> appInput {inpMouseRight = Just mousePos}
 nextAppInput appInput (SDL.MouseMotionEvent ev) =
-  case inpMouseLeft appInput of
-    Just _ -> appInput {inpMouseLeft = Just $ extractMousePos (SDL.mouseMotionEventPos ev)}
-    Nothing -> appInput 
+  case (inpMouseLeft appInput, inpMouseRight appInput) of
+   (Just _, Just _) -> appInput {inpMouseLeft = mousePos, inpMouseRight = mousePos}
+   (Nothing, Just _) -> appInput {inpMouseRight = mousePos}
+   (Just _, Nothing) -> appInput {inpMouseLeft = mousePos}
+   _ -> appInput
+  where mousePos = Just $ extractMousePos (SDL.mouseMotionEventPos ev)
 nextAppInput appInput (SDL.KeyboardEvent ev) =
   let motion = SDL.keyboardEventKeyMotion ev in
     case scancode ev of
         SDL.ScancodeEscape -> appInput { inpQuit = True }
         SDL.ScancodeC -> appInput { inpClear = motion == SDL.Pressed }
+        SDL.ScancodeT -> appInput { inpToggleWater = motion == SDL.Pressed }
         _ -> appInput { inpClear = False } -- could put more if want to.
     where scancode = SDL.keysymScancode . SDL.keyboardEventKeysym
 nextAppInput appInput _ = appInput

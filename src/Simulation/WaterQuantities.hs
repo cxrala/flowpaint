@@ -17,7 +17,7 @@ wh = 0.06
 
 wi = 1 - wh
 
-epsEvaporation = 0.0003
+epsEvaporation = 0.0005
 diff = 0.0001
 
 -- This updated velocity field models the tendency for water to "fill unused spaces" -- leading to the dark edge effect. See 4.1, water diffusion.
