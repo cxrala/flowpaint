@@ -15,6 +15,7 @@ import           Interface.UserInput
 import qualified SDL
 import           Simulation.Source   (Source, getSourceFromMouseInput)
 import           Simulation.State
+import Data.Tuple (swap)
 
 type WinSize = (Int, Int)
 
@@ -61,8 +62,8 @@ mouseToEventSF = proc mouseInput -> do
                 NoEvent -> rightEvent
                 _ -> leftEvent
 
-diffusionTacticSF :: SF (State, MouseInput) State
-diffusionTacticSF =
+diffuseSF :: SF (State, MouseInput) State
+diffuseSF =
   second mouseToEventSF `switch` diffusionTactic
     where diffusionTactic LeftPress = mapToSrc >>> arr (uncurry $ nextState True)
           diffusionTactic RightPress = mapToSrc >>> arr (uncurry $ nextState False)
@@ -96,14 +97,28 @@ renderOutputFromState = canvasStateSF . initialRenderOutput
   where
     initialRenderOutput = DefaultCanvas
 
+-- signalFunction :: State -> MouseInput -> SF (RawInput, WinSize) RenderOutput
+-- signalFunction initialState initialMouseIn =
+--   appInputSF >>> mouseInputSF (canvasSize initialState) initialMouseIn
+
+-- SF (State, MouseInput) State -> SF (MouseInput, State) State -> SF (MouseInput, State) (State, State)
+
 signalFunction :: State -> MouseInput -> SF (RawInput, WinSize) RenderOutput
 signalFunction initialState initialMouseIn =
   first parseRawInput >>> foo initialState initialMouseIn
 
+-- diffuseWithMouseInput :: State -> MouseInput -> SF (AppInput, WinSize) State
+-- diffuseWithMouseInput initialState initialMouseIn =
+--   sscan (toMouseInput $ canvasSize initialState) initialMouseIn
+--     >>> sscan inputToNextState initialState
+
+swapSF :: SF (a, b) c -> SF (b, a) c
+swapSF = (arr swap >>>)
+
+
 diffuseWithMouseInput :: State -> MouseInput -> SF (AppInput, WinSize) State
 diffuseWithMouseInput initialState initialMouseIn =
-  sscan (toMouseInput $ canvasSize initialState) initialMouseIn
-    >>> sscan inputToNextState initialState
+  mouseInputSF (canvasSize initialState) initialMouseIn >>> loopPre initialState (swapSF diffuseSF >>> arr dup)
 
 edgy :: SF a (Event b) -> SF a (Event b)
 edgy sf = (sf >>> arr isEvent >>> edge) &&& sf >>> arr (uncurry (>>))
@@ -130,9 +145,9 @@ appInToKeyboardInfo appInput
   -- | inpToggleWater appInput = Event ToggleWater
   | otherwise = NoEvent
 
-inputToNextState :: State -> MouseInput -> State
-inputToNextState prevState mouseIn =
-  nextState
-    (mouseDown mouseIn)
-    (getSourceFromMouseInput mouseIn (canvasDims prevState))
-    prevState
+-- inputToNextState :: State -> MouseInput -> State
+-- inputToNextState prevState mouseIn =
+--   nextState
+--     (mouseDown mouseIn)
+--     (getSourceFromMouseInput mouseIn (canvasDims prevState))
+--     prevState
