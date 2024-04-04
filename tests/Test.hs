@@ -22,4 +22,4 @@ spec_nextState =
             let emptyState = initialState 5
                 dims = dimsFromN 5
                 zeroMat = Just $ matrixInit dims 0 in
-            nextState zeroMat emptyState `shouldBe` emptyState
+            nextState True zeroMat emptyState `shouldBe` emptyState

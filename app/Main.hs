@@ -66,7 +66,7 @@ main = do
   initTime <- newMVar =<< SDL.time
   let varWinSize = windowSize window
   currWinSize <- get varWinSize
-  let canvasSize = 70
+  let canvasSize = 90
   
   let initState = initialState canvasSize
   let initMouse = initialMouse
