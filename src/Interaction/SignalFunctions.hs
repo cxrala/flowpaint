@@ -7,7 +7,6 @@ module Interaction.SignalFunctions
   ) where
 
 import           Data.Functor
-import           Debug.Trace         (trace)
 import           FRP.Yampa
 import           GHC.Int             (Int32)
 import           Interaction.Input
@@ -29,8 +28,17 @@ data RenderOutput
   | DefaultCanvas State
   | CanvasWaterVisible State
 
+data DiffusionTacticModifier
+  = MousePress MouseButtonPress
+  | EraseToggle
+
 data MouseButtonPress
   = LeftPress | RightPress
+  deriving (Eq)
+
+-------- UTILITY SIGNAL FUNCTIONS --------
+edgy :: SF a (Event b) -> SF a (Event b)
+edgy sf = (sf >>> arr isEvent >>> edge) &&& sf >>> arr (uncurry (>>))
 
 -------- INPUT HANDLING SIGNAL FUNCTIONS --------
 appInputSF :: SF (RawInput, WinSize) (AppInput, WinSize)
@@ -62,14 +70,35 @@ mouseToEventSF = proc mouseInput -> do
                 NoEvent -> rightEvent
                 _ -> leftEvent
 
-diffuseSF :: SF (State, MouseInput) State
-diffuseSF =
-  second mouseToEventSF `switch` diffusionTactic
-    where diffusionTactic LeftPress = mapToSrc >>> arr (uncurry $ nextState True)
-          diffusionTactic RightPress = mapToSrc >>> arr (uncurry $ nextState False)
-          mapToSrc = proc (state, mouseIn) -> do
+diffuseSF :: Bool -> SF (State, MouseInput) State
+diffuseSF leftPressed =
+  difuseHelperSF `switch` (\case
+                              LeftPress -> diffuseSF True
+                              RightPress -> diffuseSF False)
+    where mapToSrc = proc (state, mouseIn) -> do
             mSrc <- mouseToSourceSF -< (mouseIn, canvasDims state)
             returnA -< (mSrc, state)
+          diffusionTacticSF = mapToSrc >>> arr (uncurry $ nextState leftPressed)
+          difuseHelperSF = diffusionTacticSF &&& (second (edgy mouseToEventSF) >>> arr snd)
+
+-- diffuseSF :: Bool -> SF (State, MouseInput) State
+-- diffuseSF leftPressed =
+--   difuseHelperSF `switch` (\case
+--                               LeftPress -> diffuseSF True
+--                               RightPress -> diffuseSF False)
+--     where mapToSrc = proc (state, mouseIn) -> do
+--             mSrc <- mouseToSourceSF -< (mouseIn, canvasDims state)
+--             returnA -< (mSrc, state)
+--           diffusionTacticSF = mapToSrc >>> arr (uncurry $ nextState leftPressed)
+--           difuseHelperSF = diffusionTacticSF &&& (second (edgy mouseToEventSF) >>> arr snd)
+
+-- chooseDiffusionTacticSF :: DiffusionTacticModifier -> SF (State, MouseInput) State
+-- chooseDiffusionTacticSF modifier =
+--   case modifier of
+--     MousePress mouseButton -> mapToSrc >>> arr (uncurry $ nextState (mouseButton == LeftPress))
+--   where mapToSrc = proc (state, mouseIn) -> do
+--             mSrc <- mouseToSourceSF -< (mouseIn, canvasDims state)
+--             returnA -< (mSrc, state)
 
 -------- RENDER SIGNAL FUNCTIONS --------
 canvasStateSF :: RenderOutput -> SF (State, Event a) RenderOutput
@@ -97,57 +126,41 @@ renderOutputFromState = canvasStateSF . initialRenderOutput
   where
     initialRenderOutput = DefaultCanvas
 
--- signalFunction :: State -> MouseInput -> SF (RawInput, WinSize) RenderOutput
--- signalFunction initialState initialMouseIn =
---   appInputSF >>> mouseInputSF (canvasSize initialState) initialMouseIn
+-------- TYING THE ABOVE TOGETHER INTO A BIG SIGNAL FUNCTION
 
--- SF (State, MouseInput) State -> SF (MouseInput, State) State -> SF (MouseInput, State) (State, State)
-
+-- the overall signal function.
 signalFunction :: State -> MouseInput -> SF (RawInput, WinSize) RenderOutput
 signalFunction initialState initialMouseIn =
-  first parseRawInput >>> foo initialState initialMouseIn
+  first parseRawInput >>> keyboardHandledRenderOutputSF initialState initialMouseIn
 
--- diffuseWithMouseInput :: State -> MouseInput -> SF (AppInput, WinSize) State
--- diffuseWithMouseInput initialState initialMouseIn =
---   sscan (toMouseInput $ canvasSize initialState) initialMouseIn
---     >>> sscan inputToNextState initialState
-
-swapSF :: SF (a, b) c -> SF (b, a) c
-swapSF = (arr swap >>>)
-
-
+-- Given an initial state and an initial mouse in, generates a state from an AppInput and WinSize.
 diffuseWithMouseInput :: State -> MouseInput -> SF (AppInput, WinSize) State
 diffuseWithMouseInput initialState initialMouseIn =
-  mouseInputSF (canvasSize initialState) initialMouseIn >>> loopPre initialState (swapSF diffuseSF >>> arr dup)
+  mouseInputSF (canvasSize initialState) initialMouseIn >>> loopPre initialState (swapSF (diffuseSF True) >>> arr dup)
+    where swapSF = (arr swap >>>)
 
-edgy :: SF a (Event b) -> SF a (Event b)
-edgy sf = (sf >>> arr isEvent >>> edge) &&& sf >>> arr (uncurry (>>))
-
--- runs "the default diffusion signal" until the keyboard event occurs, then runs diffuseWithMouseInput
-foo :: State -> MouseInput -> SF (AppInput, WinSize) RenderOutput
-foo state inputs =
+-- handles keyboard events that drastically change program output.
+keyboardHandledRenderOutputSF :: State -> MouseInput -> SF (AppInput, WinSize) RenderOutput
+keyboardHandledRenderOutputSF state inputs =
   diffuseSF state inputs
     `switch` (\case
                 Quit -> arr (const QuitCanvas)
-                -- ToggleWater prevState -> diffuseSF prevSta input
-                ClearCanvas -> foo state inputs)
+                ClearCanvas -> keyboardHandledRenderOutputSF state inputs)
   where
     diffuseSF initialState initialMouse =
-      (diffuseWithMouseInput initialState initialMouse
-         >>> arr (\x -> CanvasState (x, True)))
-        &&& edgy (arr (appInToKeyboardInfo . fst))
+      diffusedRenderOutputSF initialState initialMouse &&& edgy (arr (appInToKeyboardInfo . fst))
 
--- SF (RawInput, WinSize) State -> SF (AppInput, WinSize) (Maybe State)
+-- gives the rendering output of the diffusion
+diffusedRenderOutputSF :: State -> MouseInput -> SF (AppInput, WinSize) RenderOutput
+diffusedRenderOutputSF initialState initialMouse = proc appInfo@(appInput, winSize) -> do
+  waterToggleEvent <- appInToToggleInfo -< appInput
+  state <- diffuseWithMouseInput initialState initialMouse -< appInfo
+  renderOut <- renderOutputFromState initialState -< (state, waterToggleEvent)
+  returnA -< renderOut
+  where appInToToggleInfo = arr inpToggleWater >>> edge
+
 appInToKeyboardInfo :: AppInput -> Event KeyboardInfo
 appInToKeyboardInfo appInput
   | inpQuit appInput = Event Quit
   | inpClear appInput = Event ClearCanvas
-  -- | inpToggleWater appInput = Event ToggleWater
   | otherwise = NoEvent
-
--- inputToNextState :: State -> MouseInput -> State
--- inputToNextState prevState mouseIn =
---   nextState
---     (mouseDown mouseIn)
---     (getSourceFromMouseInput mouseIn (canvasDims prevState))
---     prevState
