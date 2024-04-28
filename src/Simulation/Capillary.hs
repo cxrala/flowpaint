@@ -23,7 +23,7 @@ numP = 2
 
 n = 1
 threshhold = 0.3
-evaporation = 0.02
+evaporation = 0.005
 alpha = 3
 
 genPoints :: Int -> (Int, Int) -> [(Double, Double)]

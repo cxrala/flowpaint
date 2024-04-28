@@ -1,7 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveGeneric #-}
 
-module Interaction.SignalFunctions
+module Reactivity.SignalFunctions
   ( signalFunction
   , RenderOutput(..)
   ) where
@@ -9,12 +10,13 @@ module Interaction.SignalFunctions
 import           Data.Functor
 import           FRP.Yampa
 import           GHC.Int             (Int32)
-import           Interaction.Input
-import           Interface.UserInput
+import           Reactivity.Input
+import           Reactivity.MouseInput
 import qualified SDL
 import           Simulation.Source   (Source, getSourceFromMouseInput)
 import           Simulation.State
 import Data.Tuple (swap)
+import GHC.Generics
 
 type WinSize = (Int, Int)
 
@@ -22,26 +24,29 @@ data KeyboardInfo
   = Quit
   | ClearCanvas
   | ToggleWater
+  deriving (Generic, Eq, Show)
 
 data RenderOutput
   = QuitCanvas
   | DefaultCanvas State
   | CanvasWaterVisible State
+  deriving (Generic, Eq, Show)
 
 data DiffusionTacticModifier
   = MousePress MouseButtonPress
   | EraseToggle
+  deriving (Generic, Eq, Show)
 
 data MouseButtonPress
   = LeftPress | RightPress
-  deriving (Eq)
+  deriving (Generic, Eq, Show)
 
 -------- UTILITY SIGNAL FUNCTIONS --------
 edgy :: SF a (Event b) -> SF a (Event b)
 edgy sf = (sf >>> arr isEvent >>> edge) &&& sf >>> arr (uncurry (>>))
 
 -------- INPUT HANDLING SIGNAL FUNCTIONS --------
-appInputSF :: SF (RawInput, WinSize) (AppInput, WinSize)
+appInputSF :: SF (Event RawInput, WinSize) (AppInput, WinSize)
 appInputSF = first parseRawInput
 
 -- takes canvas size and initial mouse input, and produces a SF (AppInput, WinSize) MouseInput
@@ -52,7 +57,7 @@ mouseInputSF canvasSize = sscan (toMouseInput canvasSize)
       let getNextMouseInput x y =
             getMouseInput
               True
-              ((floor x, floor y), canvasSize, screenSize)
+              ((fromIntegral x, fromIntegral y), canvasSize, screenSize)
               prevMouse
        in case (inpMouseLeft appInput, inpMouseRight appInput) of
             (Just (x, y), _) -> getNextMouseInput x y
@@ -70,33 +75,35 @@ mouseToEventSF = proc mouseInput -> do
                 NoEvent -> rightEvent
                 _ -> leftEvent
 
-diffuseSF :: Bool -> SF (State, MouseInput) State
-diffuseSF leftPressed =
-  difuseHelperSF `switch` (\case
-                              LeftPress -> diffuseSF True
-                              RightPress -> diffuseSF False)
-    where mapToSrc = proc (state, mouseIn) -> do
-            mSrc <- mouseToSourceSF -< (mouseIn, canvasDims state)
-            returnA -< (mSrc, state)
-          diffusionTacticSF = mapToSrc >>> arr (uncurry $ nextState leftPressed)
-          difuseHelperSF = diffusionTacticSF &&& (second (edgy mouseToEventSF) >>> arr snd)
+diffuseSF :: SF (State, MouseInput) State
+diffuseSF =
+  let diffuseSF leftPressed =
+        difuseHelperSF `switch` (\case
+                                LeftPress -> diffuseSF True
+                                RightPress -> diffuseSF False)
+          where mapToSrcSF = proc (state, mouseIn) -> do
+                  mSrc <- mouseToSourceSF -< (mouseIn, canvasDims state)
+                  returnA -< (mSrc, state)
+                diffusionTacticSF = mapToSrcSF >>> arr (uncurry $ nextState leftPressed)
+                difuseHelperSF = diffusionTacticSF &&& (second (edgy mouseToEventSF) >>> arr snd)
+    in diffuseSF False
 
 -- diffuseSF :: Bool -> SF (State, MouseInput) State
 -- diffuseSF leftPressed =
 --   difuseHelperSF `switch` (\case
 --                               LeftPress -> diffuseSF True
 --                               RightPress -> diffuseSF False)
---     where mapToSrc = proc (state, mouseIn) -> do
+--     where mapToSrcSF = proc (state, mouseIn) -> do
 --             mSrc <- mouseToSourceSF -< (mouseIn, canvasDims state)
 --             returnA -< (mSrc, state)
---           diffusionTacticSF = mapToSrc >>> arr (uncurry $ nextState leftPressed)
+--           diffusionTacticSF = mapToSrcSF >>> arr (uncurry $ nextState leftPressed)
 --           difuseHelperSF = diffusionTacticSF &&& (second (edgy mouseToEventSF) >>> arr snd)
 
 -- chooseDiffusionTacticSF :: DiffusionTacticModifier -> SF (State, MouseInput) State
 -- chooseDiffusionTacticSF modifier =
 --   case modifier of
---     MousePress mouseButton -> mapToSrc >>> arr (uncurry $ nextState (mouseButton == LeftPress))
---   where mapToSrc = proc (state, mouseIn) -> do
+--     MousePress mouseButton -> mapToSrcSF >>> arr (uncurry $ nextState (mouseButton == LeftPress))
+--   where mapToSrcSF = proc (state, mouseIn) -> do
 --             mSrc <- mouseToSourceSF -< (mouseIn, canvasDims state)
 --             returnA -< (mSrc, state)
 
@@ -129,14 +136,15 @@ renderOutputFromState = canvasStateSF . initialRenderOutput
 -------- TYING THE ABOVE TOGETHER INTO A BIG SIGNAL FUNCTION
 
 -- the overall signal function.
-signalFunction :: State -> MouseInput -> SF (RawInput, WinSize) RenderOutput
+signalFunction :: State -> MouseInput -> SF (Event RawInput, WinSize) RenderOutput
 signalFunction initialState initialMouseIn =
-  first parseRawInput >>> keyboardHandledRenderOutputSF initialState initialMouseIn
+  appInputSF
+  >>> keyboardHandledRenderOutputSF initialState initialMouseIn
 
 -- Given an initial state and an initial mouse in, generates a state from an AppInput and WinSize.
-diffuseWithMouseInput :: State -> MouseInput -> SF (AppInput, WinSize) State
-diffuseWithMouseInput initialState initialMouseIn =
-  mouseInputSF (canvasSize initialState) initialMouseIn >>> loopPre initialState (swapSF (diffuseSF True) >>> arr dup)
+createDiffusionSignalFunction :: State -> MouseInput -> SF (AppInput, WinSize) State
+createDiffusionSignalFunction initialState initialMouseIn =
+  mouseInputSF (canvasSize initialState) initialMouseIn >>> loopPre initialState (swapSF diffuseSF >>> arr dup)
     where swapSF = (arr swap >>>)
 
 -- handles keyboard events that drastically change program output.
@@ -154,7 +162,7 @@ keyboardHandledRenderOutputSF state inputs =
 diffusedRenderOutputSF :: State -> MouseInput -> SF (AppInput, WinSize) RenderOutput
 diffusedRenderOutputSF initialState initialMouse = proc appInfo@(appInput, winSize) -> do
   waterToggleEvent <- appInToToggleInfo -< appInput
-  state <- diffuseWithMouseInput initialState initialMouse -< appInfo
+  state <- createDiffusionSignalFunction initialState initialMouse -< appInfo
   renderOut <- renderOutputFromState initialState -< (state, waterToggleEvent)
   returnA -< renderOut
   where appInToToggleInfo = arr inpToggleWater >>> edge

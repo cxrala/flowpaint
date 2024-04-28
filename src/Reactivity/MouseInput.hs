@@ -1,4 +1,4 @@
-module Interface.UserInput
+module Reactivity.MouseInput
   ( MouseInput(..)
   , getMouseInput
   , initialMouse
@@ -13,7 +13,7 @@ data MouseInput = MouseInput
   , mousePos     :: !(Int, Int)
   } deriving (Show)
 
-type WindowDims = (Int, Int)
+type WinSize = (Int, Int)
 
 type CanvasSizeN = Int
 
@@ -28,7 +28,7 @@ canvasPosFromScreen n (width, height) (x, y) =
     dh = fromIntegral height :: Double
 
 getMouseInput ::
-     Bool -> ((Int, Int), CanvasSizeN, WindowDims) -> MouseInput -> MouseInput
+     Bool -> ((Int, Int), CanvasSizeN, WinSize) -> MouseInput -> MouseInput
 getMouseInput isDown canvasInfo@(screenPosCurrent, n, windowDims) prevMouseInput =
   let scaledCurrentPos = canvasPosFromScreen n windowDims screenPosCurrent
    in if not (mouseDown prevMouseInput || mouseRightDown prevMouseInput) && isDown

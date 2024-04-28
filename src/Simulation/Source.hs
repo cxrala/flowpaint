@@ -5,7 +5,7 @@ module Simulation.Source
   ) where
 
 import           Data.List
-import           Interface.UserInput (MouseInput (mouseDown, mousePos, mousePosLast, mouseRightDown))
+import           Reactivity.MouseInput (MouseInput (mouseDown, mousePos, mousePosLast, mouseRightDown))
 import           Utils.Fields
 import           Utils.Matrix
 import Debug.Trace (trace)

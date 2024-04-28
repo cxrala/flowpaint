@@ -23,11 +23,12 @@ extra-source-files: CHANGELOG.md
 
 library flowpaint-lib
   exposed-modules:
-    Interaction.Input
-    Interaction.Render
-    Interaction.Sense
-    Interaction.SignalFunctions
-    Interface.UserInput
+    Reactivity.Input
+    Reactivity.SignalFunctions
+    Reactivity.MouseInput
+    Interface.Render
+    Interface.Sense
+    Interface.RawInput
     Simulation.Capillary
     Simulation.Source
     Simulation.State
@@ -47,6 +48,10 @@ library flowpaint-lib
     , sdl2
     , vector
     , Yampa
+    , cassava
+    , text
+    , serialise
+  
 
   hs-source-dirs:  src
 
@@ -68,6 +73,9 @@ executable flowpaint
     , text
     , vector
     , Yampa
+    , serialise
+    , bytestring
+
 
   hs-source-dirs:   app
   default-language: Haskell2010
@@ -83,5 +91,10 @@ test-suite flowpaint-test
     , tasty  >=0.11 && <1.4
     , tasty-hspec
     , hspec
-
+    , criterion
+    , Yampa
+    , sdl2
+    , serialise
+    , deepseq-generics
+    , deepseq
   default-language: Haskell2010

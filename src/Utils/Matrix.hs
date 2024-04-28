@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Utils.Matrix
   ( Matrix(..)
@@ -24,11 +25,12 @@ import qualified Data.Vector.Unboxed as V
 import qualified Data.Vector.Unboxed.Mutable as MV
 import           Control.Exception (assert)
 import Data.Ix (index, inRange, range)
+import GHC.Generics (Generic)
 
 data Matrix a = Matrix
   { vector :: !(V.Vector a)
   , dims   :: !(Int, Int) -- height, width
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic)
 
 -- private
 mWidth :: Matrix a -> Int

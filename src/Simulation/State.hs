@@ -1,6 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Simulation.State
   ( State(..)
+  , PhysicsConstants
   , nextState
   , initialState
   , dimsFromN
@@ -14,6 +16,7 @@ import           Utils.Fields
 import           Utils.Matrix
 import Simulation.Source (Source)
 import Data.Maybe (fromMaybe)
+import GHC.Generics (Generic)
 
 data State = State
   { velocityField         :: !VelocityField
@@ -26,14 +29,15 @@ data State = State
   , constants             :: !PhysicsConstants
   , canvasSize      :: !Int
   , canvasDims :: !(Int, Int)
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic)
+
 
 data PhysicsConstants = PhysicsConstants
   { physConstantDt     :: !Double -- simulation speed
   , physConstantDiff   :: !Double -- diffusion rate
   , physConstantVisc   :: !Double -- viscosity
   , physConstantSource :: !Double -- density deposited
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic)
 
 zeroMatrix dims = matrixInit dims 0
 
@@ -59,6 +63,7 @@ initialState sizeN =
         , canvasSize = sizeN
         , canvasDims = dims
         }
+
 
 dimsFromN :: Int -> (Int, Int)
 dimsFromN n = (n + 2, n + 2)

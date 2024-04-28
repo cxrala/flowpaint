@@ -22,7 +22,7 @@
 
 -- import           Data.Ord            (clamp)
 -- import           Interface.Canvas    (Canvas (..), dimsFromN)
--- import           Interface.UserInput (MouseInput, getDuplicateMouseInput,
+-- import           Reactivity.MouseInput (MouseInput, getDuplicateMouseInput,
 --                                       getMouseInput, initialMouse)
 -- import           Simulation.Source
 -- import           Simulation.State    (State (surfaceLayerDensity), initialState,

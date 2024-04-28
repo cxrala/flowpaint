@@ -1,4 +1,4 @@
-module Interaction.Render
+module Interface.Render
   ( renderState
   , initResources
   ) where
@@ -14,7 +14,7 @@ import           Foreign.C                   (CString)
 import           Foreign.Ptr
 import           GHC.Float                   (castFloatToWord32, double2Float)
 import           Graphics.Rendering.OpenGL   as GL hiding (Size)
-import           Interaction.SignalFunctions
+import           Reactivity.SignalFunctions
 import qualified SDL
 import           SDL                         (PixelFormat (RGBA8888))
 import qualified SDL.Internal.Exception      as SDL
@@ -22,6 +22,7 @@ import           SDL.Internal.Exception      (getError)
 import           Simulation.State            (State (..))
 import           Utils.Fields                (ScalarField)
 import           Utils.Matrix                (vector)
+import Debug.Trace (trace)
 
 -- in https://wiki.haskell.org/Yampa/reactimate,
 -- corresponds to output/actuate
@@ -65,21 +66,6 @@ renderState (texture, renderer) _ state =
       SDL.present renderer
       return False
 
-temp renderer canvasState texture = do
-  SDL.rendererDrawColor renderer $= SDL.V4 255 255 255 255
-  SDL.clear renderer
-  updateTexture
-    (surfaceLayerDensity canvasState)
-    mapPigmentDensityToRGBA
-    texture
-    renderer
-  SDL.copy renderer texture Nothing Nothing
-  updateTexture
-    (capillaryLayerDensity canvasState)
-    mapWaterDensityToRGBA
-    texture
-    renderer
-
 updateTexture ::
      ScalarField
   -> (Double -> SDL.V4 Word8)
@@ -97,10 +83,11 @@ mapPigmentDensityToRGBA :: Double -> SDL.V4 Word8
 mapPigmentDensityToRGBA density =
   let alphaval =
         floor
-          $ if density >= 1
+          $ if density >= 20
               then 255
-              else clamp (0, 1) density * 256
-   in SDL.V4 0 0 139 alphaval
+              else clamp (0, 255) $ f 10 density
+   in SDL.V4 100 62 139 alphaval
+   where f a dens = 255 * logBase (20 * a) (a * dens)
 
 mapWaterDensityToRGBA :: Double -> SDL.V4 Word8
 mapWaterDensityToRGBA density =
